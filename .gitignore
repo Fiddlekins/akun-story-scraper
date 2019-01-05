@@ -1,0 +1,17 @@
+# ide
+.idea
+
+# npm
+node_modules
+
+# output
+data*
+logs
+fatQuests
+
+# lists
+skiplist.txt
+targetlist.txt
+
+# secrets
+credentials.json
