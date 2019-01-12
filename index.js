@@ -2,7 +2,12 @@ const fs = require('fs-extra');
 const path = require('path');
 const inquirer = require('inquirer');
 const Akun = require('akun-api');
+const Logger = require('./js/Logger.js');
 const Scraper = require('./js/Scraper.js');
+const getStoryList = require('./js/getStoryList.js');
+const buildTargetList = require('./js/buildTargetList.js');
+
+const logger = new Logger();
 
 async function getCredentials() {
 	let credentialsJson;
@@ -16,29 +21,19 @@ async function getCredentials() {
 	try {
 		credentials = JSON.parse(credentialsJson);
 	} catch (err) {
-		console.log(`credentials.json found but not in valid JSON format`);
+		logger.error(`credentials.json found but not in valid JSON format`);
 		return null;
 	}
 	if (credentials.username && credentials.password) {
 		return credentials;
 	} else {
-		console.log(`credentials.json found but doesn't contain both username and password values`);
+		logger.error(`credentials.json found but doesn't contain both username and password values`);
 		return null;
 	}
 }
 
 async function setCredentials(credentials) {
 	await fs.writeFile('credentials.json', JSON.stringify(credentials, null, '\t'), 'utf8');
-}
-
-async function getStoryList(listPath) {
-	let listText;
-	try {
-		listText = await fs.readFile(listPath, 'utf8');
-	} catch (err) {
-		throw new Error(`List path does not exist: ${err}`);
-	}
-	return listText.split('\n').map(val => val.trim()).filter(val => val.length > 0);
 }
 
 async function confirmCredentials(akun, credentials) {
@@ -48,7 +43,7 @@ async function confirmCredentials(akun, credentials) {
 	} catch (err) {
 		throw new Error(`Unable to login: ${err}`);
 	}
-	console.log(`Logged in as ${res['username']}!`);
+	logger.log(`Logged in as ${res['username']}!`);
 }
 
 async function start() {
@@ -93,14 +88,14 @@ async function start() {
 		message: 'Run in which mode?',
 		choices: [
 			{
-				name: 'Scrape (Archives all stories)',
-				value: 'scrape',
-				short: 'Scrape'
-			},
-			{
 				name: 'Targeted (Archives specific stories)',
 				value: 'targeted',
 				short: 'Targeted'
+			},
+			{
+				name: 'Scrape (Archives all stories)',
+				value: 'scrape',
+				short: 'Scrape'
 			}
 		]
 	});
@@ -114,6 +109,7 @@ async function start() {
 
 	const scraper = new Scraper({
 		akun,
+		logger,
 		outputDirectory
 	});
 
@@ -127,6 +123,8 @@ async function start() {
 		default:
 			throw new Error(`Invalid mode '${mode}' specified`);
 	}
+
+	logger.log('\n\nFinished archiving!');
 }
 
 async function scrape(scraper) {
@@ -185,8 +183,6 @@ async function scrape(scraper) {
 	}
 
 	await scraper.archiveAllStories({ startPage, endPage, skipChat, sortType, skip });
-
-	console.log('\n\nFinished archiving!');
 }
 
 async function targeted(scraper) {
@@ -212,26 +208,27 @@ async function targeted(scraper) {
 			message: 'Target list path:',
 			default: path.join(__dirname, 'targetlist.txt')
 		});
-		targets = await getStoryList(targetListPath);
+		targets = await buildTargetList(await getStoryList(targetListPath), scraper, logger, skipChat);
 	} else {
 		const { target } = await inquirer.prompt({
 			type: 'input',
 			name: 'target',
 			message: 'Target story id (first alphanumeric hash segment from story URL):'
 		});
-		targets = [target];
+		targets = [{
+			storyId: target,
+			skipChat
+		}];
 	}
 
-	for (const storyId of targets) {
+	for (const { storyId, skipChat, user } of targets) {
 		try {
-			await scraper.archiveStory(storyId, skipChat);
+			await scraper.archiveStory(storyId, skipChat, user);
 		} catch (err) {
-			console.log(`Unable to archive story ${storyId}: ${err}`);
+			logger.error(`Unable to archive story ${storyId}: ${err}`);
 			await scraper.logFatQuest(storyId);
 		}
 	}
-
-	console.log('\n\nFinished archiving!');
 }
 
 start().catch(console.error);

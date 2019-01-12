@@ -2,7 +2,6 @@ const fs = require('fs-extra');
 const path = require('path');
 const querystring = require('querystring');
 const Striver = require('./Striver.js');
-const Logger = require('./Logger.js');
 
 
 // The values Akun uses for different story sort methods
@@ -69,12 +68,13 @@ class Scraper {
 		this._settings = settings;
 
 		this._akun = this._settings.akun;
-		this._logger = new Logger();
+		this._logger = this._settings.logger;
 		this._striver = new Striver({ waitTime: 500, logger: this._logger });
 	}
 
 	async logFatQuest(storyId) {
 		const fatQuestsPath = path.join(this._settings.outputDirectory, 'fatQuests.json');
+		await fs.ensureDir(this._settings.outputDirectory);
 		let fatQuests = [];
 		try {
 			fatQuests = await fs.readJson(fatQuestsPath, { fatal: false }) || [];
@@ -105,7 +105,7 @@ class Scraper {
 		}
 	}
 
-	async archiveStory(storyId, skipChat = false) {
+	async archiveStory(storyId, skipChat = false, user) {
 		this._logger.log(`Archiving ${storyId}`);
 		// I realised that trying to take an existing archive and only fetch new data means that edits wouldn't be picked up, which is unacceptable, so yay
 		const story = [];
@@ -114,7 +114,7 @@ class Scraper {
 		const metaData = await this._striver.handle(() => {
 			return this._api(`node/${storyId}`);
 		});
-		const author = Scraper.getAuthor(metaData);
+		const author = user || Scraper.getAuthor(metaData);
 		const storyTitle = Scraper.getStoryTitle(metaData);
 		this._logger.log(`Archiving ${storyTitle} by ${author}`);
 		const archivePath = path.join(this._settings.outputDirectory, Scraper.sanitise(author), `${Scraper.sanitise(storyTitle).slice(0, 50)}_${storyId}`);
@@ -221,6 +221,42 @@ class Scraper {
 		return storyList['stories'].map(story => {
 			return story['_id'];
 		});
+	}
+
+	async getStoyIdsFromUser(username) {
+		let user;
+		try {
+			user = await this._api(`user/${username}`);
+		} catch (err) {
+			this._logger.error(`Couldn't find user: ${username}\n${err}`);
+			throw err;
+		}
+		const stories = await this._api(`anonkun/userStories/${user['_id']}`);
+		return stories.map(story => story['_id']);
+	}
+
+	async isIdStory(id) {
+		try {
+			const metaData = await this._striver.handle(() => {
+				return this._api(`node/${id}`);
+			});
+			return metaData['_id'] === id;
+		} catch (err) {
+			this._logger.debug(`${id} deemed to not be a story`, err);
+			return false;
+		}
+	}
+
+	async isIdUser(username) {
+		try {
+			const userData = await this._striver.handle(() => {
+				return this._api(`user/${username}`);
+			});
+			return userData['username'] === username;
+		} catch (err) {
+			this._logger.debug(`${username} deemed to not be a user`, err);
+			return false;
+		}
 	}
 
 	_api(path, postData) {
