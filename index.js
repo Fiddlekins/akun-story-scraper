@@ -1,11 +1,15 @@
 const fs = require('fs-extra');
 const path = require('path');
 const inquirer = require('inquirer');
+const prettyMs = require('pretty-ms');
 const Akun = require('akun-api');
 const Logger = require('./js/Logger.js');
 const Scraper = require('./js/Scraper.js');
 const getStoryList = require('./js/getStoryList.js');
 const buildTargetList = require('./js/buildTargetList.js');
+const buildView = require('./js/view/buildView.js');
+const isFolderStoryArchive = require('./js/isFolderStoryArchive.js');
+const getViewInputList = require('./js/getViewInputList.js');
 
 const logger = new Logger();
 
@@ -47,6 +51,35 @@ async function confirmCredentials(akun, credentials) {
 }
 
 async function start() {
+
+	const { mode } = await inquirer.prompt({
+		type: 'list',
+		name: 'mode',
+		message: 'Run in which mode?',
+		choices: [
+			{
+				name: 'Targeted (Archives specific stories)',
+				value: 'targeted',
+				short: 'Targeted'
+			},
+			{
+				name: 'Scrape (Archives all stories)',
+				value: 'scrape',
+				short: 'Scrape'
+			},
+			{
+				name: 'Build View (Convert archived data into viewable HTML)',
+				value: 'view',
+				short: 'Build View'
+			}
+		]
+	});
+
+	if (mode === 'view') {
+		await view();
+		return;
+	}
+
 	let credentials = await getCredentials();
 	const storedCredentialsFound = !!credentials;
 	if (!storedCredentialsFound) {
@@ -81,24 +114,6 @@ async function start() {
 			await setCredentials(credentials);
 		}
 	}
-
-	const { mode } = await inquirer.prompt({
-		type: 'list',
-		name: 'mode',
-		message: 'Run in which mode?',
-		choices: [
-			{
-				name: 'Targeted (Archives specific stories)',
-				value: 'targeted',
-				short: 'Targeted'
-			},
-			{
-				name: 'Scrape (Archives all stories)',
-				value: 'scrape',
-				short: 'Scrape'
-			}
-		]
-	});
 
 	const { outputDirectory } = await inquirer.prompt({
 		type: 'input',
@@ -229,6 +244,88 @@ async function targeted(scraper) {
 			await scraper.logFatQuest(storyId);
 		}
 	}
+}
+
+async function view() {
+
+	const defaultInputPath = path.join(__dirname, (await fs.readdir(__dirname)).filter(file => file.startsWith('data-')).pop());
+
+	const { mode, inputPath, outputType } = await inquirer.prompt([
+		{
+			type: 'list',
+			name: 'mode',
+			message: 'Run in which mode?',
+			choices: [
+				{
+					name: 'Multi (Build views for multiple archives)',
+					value: 'multi',
+					short: 'Multi'
+				},
+				{
+					name: 'Single (Build view for single archive)',
+					value: 'single',
+					short: 'Single'
+				}
+			]
+		},
+		{
+			type: 'input',
+			name: 'inputPath',
+			message: 'Specify input path:',
+			default: defaultInputPath
+		},
+		{
+			type: 'list',
+			name: 'outputType',
+			message: 'Output files where?',
+			choices: [
+				{
+					name: 'In situ (The new files will be placed in the same folder as the archive files used to generate them)',
+					value: 'insitu',
+					short: 'In situ'
+				},
+				{
+					name: 'Elsewhere (The new files will be placed in a single folder of your choosing)',
+					value: 'elsewhere',
+					short: 'Elsewhere'
+				}
+			]
+		}
+	]);
+	let outputPath;
+	if (outputType === 'elsewhere') {
+		const answers = await inquirer.prompt([
+			{
+				type: 'input',
+				name: 'outputPath',
+				message: 'Specify output path:',
+				default: path.join(__dirname, 'views')
+			}
+		]);
+		outputPath = answers['outputPath'];
+	}
+	if (mode === 'single') {
+		if (await isFolderStoryArchive(inputPath)) {
+			await buildView(inputPath, outputPath);
+		} else {
+			logger.error('Input path did not recognised as an archive');
+		}
+	} else {
+		const inputPaths = await getViewInputList(inputPath);
+		if (inputPaths.length) {
+			const timeStart = Date.now();
+			logger.log('Detected following archives:');
+			inputPaths.forEach(input => logger.log(input));
+			for (const input of inputPaths) {
+				await buildView(input, outputPath);
+			}
+			const timeElapsed = Date.now() - timeStart;
+			console.log(`Built all views in ${prettyMs(timeElapsed)}`);
+		} else {
+			logger.error(`Couldn't detect any archives within input path`);
+		}
+	}
+
 }
 
 start().catch(console.error);

@@ -1,0 +1,219 @@
+html {
+    background: #d8d8d8;
+}
+
+body {
+    word-wrap: break-word;
+    max-width: 1080px;
+    margin: auto;
+    padding: 15px;
+    background: white;
+}
+
+#header {
+    .coverImage {
+        width: 100%;
+    }
+
+    .title {
+        font-size: 52px;
+    }
+
+    .authors {
+        margin-left: 16px;
+
+        .author {
+            .avatar {
+                display: inline;
+                width: 48px;
+                height: 48px;
+            }
+
+            .username {
+                padding-left: 10px;
+            }
+        }
+    }
+
+    .tags {
+        margin: 5px 0;
+
+        .tag {
+            display: inline-block;
+            padding-right: 5px;
+        }
+
+        .spoiler {
+            background: black;
+            color: black;
+        }
+
+        .spoiler:hover {
+            color: white;
+        }
+    }
+
+    .description {
+        font-size: large;
+    }
+
+    .introduction {
+    }
+}
+
+#story {
+    .update {
+        .contentMetadata {
+            margin: 10px 0 0 0;
+
+            .authors {
+                .author {
+                    font-size: large;
+
+                    .avatar {
+                        display: inline;
+                        width: 24px;
+                        height: 24px;
+                    }
+
+                    .username {
+                        opacity: 0.8;
+                        font-size: small;
+                        margin-right: 10px;
+
+                    }
+                }
+            }
+
+            .date {
+                font-size: 10px;
+                opacity: 0.8;
+            }
+        }
+
+        .content {
+            overflow-x: auto;
+
+            img {
+                display: block;
+                margin: auto;
+                max-width: 100%;
+            }
+
+            table {
+                width: 100%;
+                border-collapse: collapse;
+            }
+        }
+    }
+
+    .update.chapter {
+    }
+
+    .update.readerPost {
+        .content {
+            padding: 0 2px;
+            background-color: rgba(0, 0, 0, 0.06);
+
+            > *:not(:last-child) {
+                padding-bottom: 10px;
+            }
+
+            .title {
+                font-weight: bold;
+                padding-bottom: 5px;
+            }
+
+            .posts {
+                > :nth-child(even) {
+                    background-color: rgba(0, 0, 0, 0.06);
+                }
+            }
+
+            .votes .posts > * {
+                padding: 5px;
+            }
+        }
+
+    }
+
+    .update.choice {
+        .content {
+            padding: 0 2px;
+            background-color: rgba(0, 0, 0, 0.06);
+
+            th {
+                text-align: left;
+                border-bottom: rgba(0, 0, 0, 0.2) 1px solid;
+            }
+
+            th, td {
+                padding: 0 10px;
+            }
+
+            td:first-child {
+                text-align: center;
+            }
+
+            td:last-child {
+                width: 100%;
+            }
+        }
+
+        .metadata {
+            font-style: italic;
+            font-size: small;
+            opacity: 0.8;
+            border-bottom: solid 1px rgba(0, 0, 0, 0.2);
+            align-items: center;
+
+            .type {
+                > * {
+                    padding-right: 5px;
+                }
+
+                .multi {
+                }
+
+                .custom {
+                }
+            }
+
+            .votersCount {
+            }
+        }
+
+        .votes {
+            tr:nth-child(even) {
+                background-color: rgba(0, 0, 0, 0.06);
+            }
+
+            .vote {
+                .count {
+                }
+
+                .value {
+                    .text {
+                    }
+
+                    .reason {
+                        font-size: small;
+                        opacity: 0.8;
+                    }
+                }
+            }
+
+            .xOut {
+                .text {
+                    text-decoration: line-through;
+                    font-size: small;
+                    opacity: 0.8;
+                }
+            }
+
+            .xOutPermanently {
+                display: none;
+            }
+        }
+    }
+}
