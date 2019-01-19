@@ -27,7 +27,7 @@ class Scraper {
 	}
 
 	static getStoryTitle(node) {
-		return node['t'];
+		return node['t'] || node['b'] || 'undefined';
 	}
 
 	static stripUserIds(node) {
