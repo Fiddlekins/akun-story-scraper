@@ -11,7 +11,7 @@ function buildUpdate(update) {
 <div id="${update['_id']}" class="update ${update['nt']}">
 	<div class="contentMetadata">
 		<span class="authors"></span>
-		<span class="date">${formatTimestamp(update['ut'])}</span>	
+		<span class="date">${formatTimestamp(update['ct'])}</span>	
 	</div>
 	<div class="content"></div>
 </div>`);
