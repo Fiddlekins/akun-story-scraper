@@ -1,7 +1,10 @@
 const fs = require('fs-extra');
 const path = require('path');
 const querystring = require('querystring');
+const { JSDOM } = require('jsdom');
 const Striver = require('./Striver.js');
+const Throttler = require('./Throttler.js');
+const downloadImage = require('./downloadImage.js');
 
 
 // The values Akun uses for different story sort methods
@@ -64,6 +67,64 @@ class Scraper {
 		return SORT_MODES;
 	}
 
+	static addImageUrlsFromUser(users, urls) {
+		if (Array.isArray(users)) {
+			users.forEach(user => {
+				if (user['a']) {
+					urls.add(user['a']);
+				}
+			});
+		} else {
+			if (users['a']) {
+				urls.add(users['a']);
+			}
+		}
+	}
+
+	static addImageUrlsFromMetadata(metadata, urls) {
+		if (metadata['i']) {
+			if (Array.isArray(metadata['i'])) {
+				metadata['i'].forEach(url => urls.add(url));
+			} else {
+				urls.add(metadata['i']);
+			}
+		}
+		if (metadata['u']) {
+			Scraper.addImageUrlsFromUser(metadata['u'], urls);
+		}
+	}
+
+	static addImageUrlsFromStory(story, urls, logger) {
+		for (const update of story) {
+			if (update['nt'] === 'chapter') {
+				try {
+					const dom = JSDOM.fragment(update['b']);
+					dom.querySelectorAll('img').forEach(el => urls.add(el.src));
+				} catch (err) {
+					logger.error(err);
+				}
+			}
+			if (update['u']) {
+				Scraper.addImageUrlsFromUser(update['u'], urls);
+			}
+		}
+	}
+
+	static addImageUrlsFromChat(chat, urls) {
+		for (const post of chat) {
+			if (post['i']) {
+				if (Array.isArray(post['i'])) {
+					post['i'].forEach(url => urls.add(url));
+				} else {
+					urls.add(post['i']);
+				}
+			}
+			if (post['u']) {
+				Scraper.addImageUrlsFromUser(post['u'], urls);
+			}
+		}
+	}
+
 	constructor(settings) {
 		this._settings = settings;
 
@@ -85,7 +146,7 @@ class Scraper {
 		await fs.writeJson(fatQuestsPath, fatQuests);
 	}
 
-	async archiveAllStories({ startPage = 1, endPage = 1000, skipChat = false, sortType = Scraper.SORT_MODES.NEW, skip = [] }) {
+	async archiveAllStories({ startPage = 1, endPage = 1000, skipChat = false, sortType = Scraper.SORT_MODES.NEW, skip = [], downloadImages = true }) {
 		for (let storyPageIndex = startPage; storyPageIndex < endPage; storyPageIndex++) {
 			this._logger.log(`Archiving page ${storyPageIndex}`);
 			const storyIds = await this.getStoryList(storyPageIndex, sortType);
@@ -95,7 +156,7 @@ class Scraper {
 					this._logger.log(`Skipping ${storyId}`);
 				} else {
 					try {
-						await this.archiveStory(storyId, skipChat);
+						await this.archiveStory(storyId, skipChat, downloadImages);
 					} catch (err) {
 						this._logger.error(`Unable to archive story ${storyId}: ${err}`);
 						await this.logFatQuest(storyId);
@@ -105,9 +166,10 @@ class Scraper {
 		}
 	}
 
-	async archiveStory(storyId, skipChat = false, user) {
+	async archiveStory(storyId, skipChat = false, user, downloadImages = true) {
 		this._logger.log(`Archiving ${storyId}`);
 		// I realised that trying to take an existing archive and only fetch new data means that edits wouldn't be picked up, which is unacceptable, so yay
+		const imageUrls = new Set();
 		const story = [];
 		let chat = [];
 
@@ -122,6 +184,9 @@ class Scraper {
 		this._logger.log(`Saving to ${archivePath}`);
 
 		await fs.outputJson(path.join(archivePath, `${storyId}.metadata.json`), metaData);
+		if (downloadImages) {
+			Scraper.addImageUrlsFromMetadata(metaData, imageUrls);
+		}
 
 		try {
 			const chapters = await this._striver.handle(() => {
@@ -136,6 +201,9 @@ class Scraper {
 		}
 
 		await fs.outputJson(path.join(archivePath, `${storyId}.chapters.json`), story);
+		if (downloadImages) {
+			Scraper.addImageUrlsFromStory(story, imageUrls, this._logger);
+		}
 
 		if (!skipChat) {
 			const latestChat = await this._striver.handle(() => {
@@ -197,6 +265,31 @@ class Scraper {
 				await fs.outputJson(path.join(archivePath, `${storyId}.chat.${outputIndex}.json`), chat.slice(i, i + chatOutputMaxLength));
 				outputIndex++;
 			}
+
+			if (downloadImages) {
+				Scraper.addImageUrlsFromChat(chat, imageUrls);
+			}
+		}
+
+		if (downloadImages) {
+			const imageMap = {};
+			const imagesPath = path.join(archivePath, 'images');
+			this._logger.log(`Downloading images...`);
+			const throttler = new Throttler();
+			const promises = [];
+			Array.from(imageUrls).forEach(imageUrl => {
+				const promiseGenerator = () => {
+					return downloadImage(imageUrl, imagesPath).then(imagePath => {
+						imageMap[imageUrl] = imagePath;
+					});
+				};
+				const promise = throttler.queue(promiseGenerator).catch(err => {
+					this._logger.error(`Unable to download image ${imageUrl} due to:\n${err}`);
+				});
+				promises.push(promise);
+			});
+			await Promise.all(promises);
+			await fs.outputJson(path.join(archivePath, `${storyId}.imagemap.json`), imageMap);
 		}
 
 		this._logger.log(`Saved`);

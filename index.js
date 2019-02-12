@@ -143,7 +143,7 @@ async function start() {
 }
 
 async function scrape(scraper) {
-	const { sortType, startPage, endPage, skipChat, useSkipList } = await inquirer.prompt([
+	const { sortType, startPage, endPage, skipChat, downloadImages, useSkipList } = await inquirer.prompt([
 		{
 			type: 'list',
 			name: 'sortType',
@@ -180,6 +180,11 @@ async function scrape(scraper) {
 		},
 		{
 			type: 'confirm',
+			name: 'downloadImages',
+			message: 'Download images:'
+		},
+		{
+			type: 'confirm',
 			name: 'useSkipList',
 			message: 'Use a skip list to avoid archiving specific stories?',
 			default: false
@@ -197,15 +202,20 @@ async function scrape(scraper) {
 		skip = await getStoryList(skipListPath);
 	}
 
-	await scraper.archiveAllStories({ startPage, endPage, skipChat, sortType, skip });
+	await scraper.archiveAllStories({ startPage, endPage, skipChat, sortType, skip, downloadImages });
 }
 
 async function targeted(scraper) {
-	const { skipChat, useTargetList } = await inquirer.prompt([
+	const { skipChat, useTargetList, downloadImages } = await inquirer.prompt([
 		{
 			type: 'confirm',
 			name: 'skipChat',
 			message: 'Skip chat:'
+		},
+		{
+			type: 'confirm',
+			name: 'downloadImages',
+			message: 'Download images:'
 		},
 		{
 			type: 'confirm',
@@ -238,7 +248,7 @@ async function targeted(scraper) {
 
 	for (const { storyId, skipChat, user } of targets) {
 		try {
-			await scraper.archiveStory(storyId, skipChat, user);
+			await scraper.archiveStory(storyId, skipChat, user, downloadImages);
 		} catch (err) {
 			logger.error(`Unable to archive story ${storyId}: ${err}`);
 			await scraper.logFatQuest(storyId);
