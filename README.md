@@ -2,9 +2,13 @@
 
 It'll archive stories for you.
 
+If you have no idea what you're doing then just download [this zip](https://my.mixtape.moe/pzkkcp.zip) and extract it in a nice friendly location like your desktop.
+
+Otherwise clone the project, do an npm install, it's pretty standard.
+
 If you're on windows just run `run.cmd` and follow the prompts.
 
-If you're on linux you probably know what you're doing, run the tool with `node index.js` or `npm run start`.
+If you're on linux then run the tool with `node index.js` or `npm run start`.
 
 If you're running this in targeted mode or scrape mode with a skip list then you'll need to figure out the ID for the stories you wish to archive
 
