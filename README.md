@@ -2,7 +2,7 @@
 
 It'll archive stories for you.
 
-If you have no idea what you're doing then just download [this zip](https://my.mixtape.moe/pzkkcp.zip) and extract it in a nice friendly location like your desktop.
+If you have no idea what you're doing then just download [this zip](https://github.com/Fiddlekins/akun-story-scraper/releases/download/1.1.0/akun-story-scraper.1.1.0.zip) and extract it in a nice friendly location like your desktop.
 
 Otherwise clone the project, do an npm install, it's pretty standard.
 
