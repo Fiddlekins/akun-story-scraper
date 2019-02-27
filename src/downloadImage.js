@@ -29,26 +29,40 @@ async function downloadImage(imageUrl, dest) {
 	await fs.ensureDir(path.join(dest, path.dirname(imagePath)));
 
 	await new Promise((res, rej) => {
-		const imageReadable = request(imageUrl);
-		const intercept = new ImageTypeIntercept();
-		imageReadable.pipe(intercept);
-		intercept.on('imageType', (type) => {
-			try {
-				if (type) {
-					const { ext } = type;
-					if (path.extname(imagePath) !== `.${ext}`) {
-						imagePath += `.${ext}`;
-					}
+		try {
+			let receivedData = false;
+			const imageReadable = request(imageUrl);
+			const intercept = new ImageTypeIntercept();
+			imageReadable.on('data', () => {
+				receivedData = true;
+			});
+			imageReadable.on('close', () => {
+				if (!receivedData) {
+					intercept.removeAllListeners('imageType');
+					rej(`Response has no data for ${imageUrl}`);
 				}
-				const fileWriteable = fs.createWriteStream(path.join(dest, imagePath), { encoding: null });
-				intercept.pipe(fileWriteable);
-				fileWriteable.once('close', () => {
-					res();
-				});
-			} catch (err) {
-				rej(err);
-			}
-		});
+			});
+			imageReadable.pipe(intercept);
+			intercept.on('imageType', (type) => {
+				try {
+					if (type) {
+						const { ext } = type;
+						if (path.extname(imagePath) !== `.${ext}`) {
+							imagePath += `.${ext}`;
+						}
+					}
+					const fileWriteable = fs.createWriteStream(path.join(dest, imagePath), { encoding: null });
+					intercept.pipe(fileWriteable);
+					fileWriteable.once('close', () => {
+						res();
+					});
+				} catch (err) {
+					rej(err);
+				}
+			});
+		} catch (err) {
+			rej(err);
+		}
 	});
 
 	return imagePath;

@@ -1,23 +1,25 @@
 {
   "name": "akun-story-scraper",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "A tool to archive all quests on Akun",
-  "main": "index.js",
+  "main": "src/index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node index.js"
+    "start": "node src/index.js",
+    "build": "node build/build.js"
   },
   "author": "Fiddlekins",
   "license": "ISC",
   "dependencies": {
     "akun-api": "git+https://github.com/Fiddlekins/akun-api.git#1.1.2",
+    "archiver": "^3.0.0",
     "autoprefixer": "^9.4.5",
     "cssnano": "^4.1.8",
     "escape-html": "^1.0.3",
     "fs-extra": "^4.0.2",
     "image-type": "^3.0.0",
     "inquirer": "^6.2.1",
-    "jsdom": "^13.1.0",
+    "jsdom": "^13.2.0",
     "postcss": "^7.0.13",
     "precss": "^4.0.0",
     "pretty-ms": "^4.0.0",

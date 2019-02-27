@@ -156,7 +156,7 @@ class Scraper {
 					this._logger.log(`Skipping ${storyId}`);
 				} else {
 					try {
-						await this.archiveStory(storyId, skipChat, downloadImages);
+						await this.archiveStory({ storyId, skipChat, downloadImages });
 					} catch (err) {
 						this._logger.error(`Unable to archive story ${storyId}: ${err}`);
 						await this.logFatQuest(storyId);
@@ -166,7 +166,7 @@ class Scraper {
 		}
 	}
 
-	async archiveStory(storyId, skipChat = false, user, downloadImages = true) {
+	async archiveStory({ storyId, skipChat = false, user, downloadImages = true }) {
 		this._logger.log(`Archiving ${storyId}`);
 		// I realised that trying to take an existing archive and only fetch new data means that edits wouldn't be picked up, which is unacceptable, so yay
 		const imageUrls = new Set();

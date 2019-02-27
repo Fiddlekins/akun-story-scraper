@@ -12,6 +12,8 @@ data*
 logs
 fatQuests
 views
+stage
+dest
 
 # lists
 skiplist.txt

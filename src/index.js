@@ -3,15 +3,16 @@ const path = require('path');
 const inquirer = require('inquirer');
 const prettyMs = require('pretty-ms');
 const Akun = require('akun-api');
-const Logger = require('./js/Logger.js');
-const Scraper = require('./js/Scraper.js');
-const getStoryList = require('./js/getStoryList.js');
-const buildTargetList = require('./js/buildTargetList.js');
-const buildView = require('./js/view/buildView.js');
-const isFolderStoryArchive = require('./js/isFolderStoryArchive.js');
-const getViewInputList = require('./js/getViewInputList.js');
+const Logger = require('./Logger.js');
+const Scraper = require('./Scraper.js');
+const getStoryList = require('./getStoryList.js');
+const buildTargetList = require('./buildTargetList.js');
+const buildView = require('./view/buildView.js');
+const isFolderStoryArchive = require('./isFolderStoryArchive.js');
+const getViewInputList = require('./getViewInputList.js');
 
 const logger = new Logger();
+const projectRoot = path.join(__dirname, '..');
 
 async function getCredentials() {
 	let credentialsJson;
@@ -119,7 +120,7 @@ async function start() {
 		type: 'input',
 		name: 'outputDirectory',
 		message: 'Output directory for archived data:',
-		default: path.join(__dirname, `data-${Date.now()}`)
+		default: path.join(projectRoot, `data-${Date.now()}`)
 	});
 
 	const scraper = new Scraper({
@@ -197,7 +198,7 @@ async function scrape(scraper) {
 			type: 'input',
 			name: 'skipListPath',
 			message: 'Skip list path:',
-			default: path.join(__dirname, 'skiplist.txt')
+			default: path.join(projectRoot, 'skiplist.txt')
 		});
 		skip = await getStoryList(skipListPath);
 	}
@@ -231,7 +232,7 @@ async function targeted(scraper) {
 			type: 'input',
 			name: 'targetListPath',
 			message: 'Target list path:',
-			default: path.join(__dirname, 'targetlist.txt')
+			default: path.join(projectRoot, 'targetlist.txt')
 		});
 		targets = await buildTargetList(await getStoryList(targetListPath), scraper, logger, skipChat);
 	} else {
@@ -248,7 +249,7 @@ async function targeted(scraper) {
 
 	for (const { storyId, skipChat, user } of targets) {
 		try {
-			await scraper.archiveStory(storyId, skipChat, user, downloadImages);
+			await scraper.archiveStory({ storyId, skipChat, user, downloadImages });
 		} catch (err) {
 			logger.error(`Unable to archive story ${storyId}: ${err}`);
 			await scraper.logFatQuest(storyId);
@@ -258,7 +259,8 @@ async function targeted(scraper) {
 
 async function view() {
 
-	const defaultInputPath = path.join(__dirname, (await fs.readdir(__dirname)).filter(file => file.startsWith('data-')).pop());
+	const dataFolder = (await fs.readdir(projectRoot)).filter(file => file.startsWith('data-')).pop();
+	const defaultInputPath = dataFolder && path.join(projectRoot, dataFolder);
 
 	const { mode, inputPath, outputType } = await inquirer.prompt([
 		{
@@ -309,7 +311,7 @@ async function view() {
 				type: 'input',
 				name: 'outputPath',
 				message: 'Specify output path:',
-				default: path.join(__dirname, 'views')
+				default: path.join(projectRoot, 'views')
 			}
 		]);
 		outputPath = answers['outputPath'];
