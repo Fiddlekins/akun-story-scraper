@@ -1,6 +1,6 @@
-const fs = require('fs-extra');
+import fs from 'fs-extra';
 
-async function getStoryList(listPath) {
+export default async function getStoryList(listPath) {
 	let listText;
 	try {
 		listText = await fs.readFile(listPath, 'utf8');
@@ -11,7 +11,7 @@ async function getStoryList(listPath) {
 	return entries.map(entry => {
 		const target = {};
 		// Don't care about the comment
-		const [meaningful, comment] = entry.split('//');
+		const [meaningful] = entry.split('//');
 		const [id, skipChat, isUser] = meaningful.split(';');
 		// Just ensure the id isn't padded with any whitespace
 		target.id = id.trim();
@@ -39,5 +39,3 @@ async function getStoryList(listPath) {
 		return target;
 	});
 }
-
-module.exports = getStoryList;

@@ -1,9 +1,9 @@
-const fs = require('fs-extra');
-const path = require('path');
-const isFolderStoryArchive = require('./isFolderStoryArchive.js');
+import fs from 'fs-extra';
+import path from 'path';
+import isFolderStoryArchive from "./isFolderStoryArchive.js";
 
-async function getViewInputList(inputPath) {
-	list = [];
+export default async function getViewInputList(inputPath) {
+	const list = [];
 	await trawlSubfoldersForArchives(inputPath, list);
 	return list;
 }
@@ -18,5 +18,3 @@ async function trawlSubfoldersForArchives(inputPath, list) {
 	} catch (err) {
 	}
 }
-
-module.exports = getViewInputList;

@@ -1,18 +1,19 @@
-const fs = require('fs-extra');
-const path = require('path');
-const inquirer = require('inquirer');
-const prettyMs = require('pretty-ms');
-const Akun = require('akun-api');
-const Logger = require('./Logger.js');
-const Scraper = require('./Scraper.js');
-const getStoryList = require('./getStoryList.js');
-const buildTargetList = require('./buildTargetList.js');
-const buildView = require('./view/buildView.js');
-const isFolderStoryArchive = require('./isFolderStoryArchive.js');
-const getViewInputList = require('./getViewInputList.js');
+import Akun from 'akun-api';
+import fs from 'fs-extra';
+import inquirer from 'inquirer';
+import path from 'path';
+import prettyMs from 'pretty-ms';
+import {fileURLToPath} from 'url';
+import buildTargetList from './buildTargetList.js';
+import getStoryList from './getStoryList.js';
+import getViewInputList from './getViewInputList.js';
+import isFolderStoryArchive from './isFolderStoryArchive.js';
+import Logger from './Logger.js';
+import Scraper from './Scraper.js';
+import buildView from './view/buildView.js';
 
 const logger = new Logger();
-const projectRoot = path.join(__dirname, '..');
+const projectRoot = path.join(fileURLToPath(import.meta.url), '..', '..');
 
 async function getCredentials() {
 	let credentialsJson;
@@ -53,7 +54,7 @@ async function confirmCredentials(akun, credentials) {
 
 async function start() {
 
-	const { mode } = await inquirer.prompt({
+	const {mode} = await inquirer.prompt({
 		type: 'list',
 		name: 'mode',
 		message: 'Run in which mode?',
@@ -99,14 +100,11 @@ async function start() {
 		]);
 	}
 	const akun = new Akun({
-		hostname: 'fiction.live',
-		connection: {
-			hostname: 'rt.fiction.live'
-		}
+		hostname: 'fiction.live'
 	});
 	await confirmCredentials(akun, credentials);
 	if (!storedCredentialsFound) {
-		const { saveCredentials } = await inquirer.prompt({
+		const {saveCredentials} = await inquirer.prompt({
 			type: 'confirm',
 			name: 'saveCredentials',
 			message: 'Store credentials for next time? (Warning: will be stored in plaintext)'
@@ -116,7 +114,7 @@ async function start() {
 		}
 	}
 
-	const { outputDirectory } = await inquirer.prompt({
+	const {outputDirectory} = await inquirer.prompt({
 		type: 'input',
 		name: 'outputDirectory',
 		message: 'Output directory for archived data:',
@@ -144,21 +142,31 @@ async function start() {
 }
 
 async function scrape(scraper) {
-	const { sortType, startPage, endPage, skipChat, downloadImages, useSkipList } = await inquirer.prompt([
+	const {sortType, startPage, endPage, skipChat, downloadImages, useSkipList} = await inquirer.prompt([
 		{
 			type: 'list',
 			name: 'sortType',
 			message: 'Sort type (determines the order to archive quests in):',
 			choices: [
 				{
-					name: 'Ordered by creation date',
-					value: Scraper.SORT_MODES.NEW,
-					short: 'Creation date'
+					name: 'Sort by the latest activity in the story, including chat posts',
+					value: Scraper.SORT_MODES.LATEST,
+					short: 'Latest'
 				},
 				{
-					name: 'Ordered by last update date',
-					value: Scraper.SORT_MODES.UPDATED,
-					short: 'Update date'
+					name: 'Sort by the latest posted chapter',
+					value: Scraper.SORT_MODES.UPDATED_CHAPTER,
+					short: 'UpdatedChapter'
+				},
+				{
+					name: 'Sort by the most commented stories',
+					value: Scraper.SORT_MODES.TOP,
+					short: 'top'
+				},
+				{
+					name: 'Sort by the story creation time',
+					value: Scraper.SORT_MODES.NEW,
+					short: 'new'
 				}
 			]
 		},
@@ -194,7 +202,7 @@ async function scrape(scraper) {
 
 	let skip = [];
 	if (useSkipList) {
-		const { skipListPath } = await inquirer.prompt({
+		const {skipListPath} = await inquirer.prompt({
 			type: 'input',
 			name: 'skipListPath',
 			message: 'Skip list path:',
@@ -203,11 +211,11 @@ async function scrape(scraper) {
 		skip = await getStoryList(skipListPath);
 	}
 
-	await scraper.archiveAllStories({ startPage, endPage, skipChat, sortType, skip, downloadImages });
+	await scraper.archiveAllStories({startPage, endPage, skipChat, sortType, skip, downloadImages});
 }
 
 async function targeted(scraper) {
-	const { skipChat, useTargetList, downloadImages } = await inquirer.prompt([
+	const {skipChat, useTargetList, downloadImages} = await inquirer.prompt([
 		{
 			type: 'confirm',
 			name: 'skipChat',
@@ -226,9 +234,9 @@ async function targeted(scraper) {
 		}
 	]);
 
-	let targets = [];
+	let targets;
 	if (useTargetList) {
-		const { targetListPath } = await inquirer.prompt({
+		const {targetListPath} = await inquirer.prompt({
 			type: 'input',
 			name: 'targetListPath',
 			message: 'Target list path:',
@@ -236,7 +244,7 @@ async function targeted(scraper) {
 		});
 		targets = await buildTargetList(await getStoryList(targetListPath), scraper, logger, skipChat);
 	} else {
-		const { target } = await inquirer.prompt({
+		const {target} = await inquirer.prompt({
 			type: 'input',
 			name: 'target',
 			message: 'Target story id (first alphanumeric hash segment from story URL):'
@@ -247,9 +255,9 @@ async function targeted(scraper) {
 		}];
 	}
 
-	for (const { storyId, skipChat, user } of targets) {
+	for (const {storyId, skipChat, user} of targets) {
 		try {
-			await scraper.archiveStory({ storyId, skipChat, user, downloadImages });
+			await scraper.archiveStory({storyId, skipChat, user, downloadImages});
 		} catch (err) {
 			logger.error(`Unable to archive story ${storyId}: ${err}`);
 			await scraper.logFatQuest(storyId);
@@ -262,7 +270,7 @@ async function view() {
 	const dataFolder = (await fs.readdir(projectRoot)).filter(file => file.startsWith('data-')).pop();
 	const defaultInputPath = dataFolder && path.join(projectRoot, dataFolder);
 
-	const { mode, inputPath, outputType } = await inquirer.prompt([
+	const {mode, inputPath, outputType} = await inquirer.prompt([
 		{
 			type: 'list',
 			name: 'mode',

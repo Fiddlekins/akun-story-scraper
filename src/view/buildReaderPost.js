@@ -1,6 +1,8 @@
-const { JSDOM } = require('jsdom');
+import jsdom from 'jsdom';
 
-function buildReaderPost($content, update) {
+const {JSDOM} = jsdom;
+
+export default function buildReaderPost($content, update) {
 	if (update['votes']) {
 		const $votes = JSDOM.fragment(`
 <div class="votes">
@@ -28,5 +30,3 @@ function buildReaderPost($content, update) {
 		$content.appendChild($dice);
 	}
 }
-
-module.exports = buildReaderPost;

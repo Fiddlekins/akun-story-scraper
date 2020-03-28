@@ -3,7 +3,7 @@
 // Lower items on the list override higher items
 // If target is a user rather than a story then archive it under their name rather than the default, which is the first name in the story author list
 
-async function buildTargetList(targetList, scraper, logger, skipChatGlobal) {
+export default async function buildTargetList(targetList, scraper, logger, skipChatGlobal) {
 	const targets = {};
 
 	let order = 0;
@@ -20,7 +20,7 @@ async function buildTargetList(targetList, scraper, logger, skipChatGlobal) {
 			if (confirmedIsUser) {
 				const ids = await scraper.getStoyIdsFromUser(userid);
 				for (const storyId of ids) {
-					targets[storyId] = { storyId, skipChat, order: order++, user: userid };
+					targets[storyId] = {storyId, skipChat, order: order++, user: userid};
 				}
 			} else {
 				logger.error(`Cannot resolve ${userid} as a user. Failed to archive their stories.`);
@@ -28,13 +28,13 @@ async function buildTargetList(targetList, scraper, logger, skipChatGlobal) {
 		} else {
 			const confirmedIsStory = await scraper.isIdStory(id);
 			if (confirmedIsStory) {
-				targets[id] = { storyId: id, skipChat, order: order++ };
+				targets[id] = {storyId: id, skipChat, order: order++};
 			} else {
 				const confirmedIsUser = await scraper.isIdUser(userid);
 				if (confirmedIsUser) {
 					const ids = await scraper.getStoyIdsFromUser(userid);
 					for (const storyId of ids) {
-						targets[storyId] = { storyId, skipChat, order: order++, user: userid };
+						targets[storyId] = {storyId, skipChat, order: order++, user: userid};
 					}
 				} else {
 					logger.error(`Cannot resolve ${id} as a story or ${userid} as a user. Failed to archive.`);
@@ -51,5 +51,3 @@ async function buildTargetList(targetList, scraper, logger, skipChatGlobal) {
 		return a.order - b.order;
 	});
 }
-
-module.exports = buildTargetList;

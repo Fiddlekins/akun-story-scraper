@@ -1,4 +1,4 @@
-function formatAvatarSrc(src, size = 64) {
+export default function formatAvatarSrc(src, size = 64) {
 	const cloudfrontMatch = src.match(/https?:\/\/[A-z0-9]+.cloudfront.net\/images\/(.+)/i);
 	if (cloudfrontMatch) {
 		return `https://cdn.fiction.live/h${size}-w${size}-cfill/images/${cloudfrontMatch[1]}`;
@@ -9,5 +9,3 @@ function formatAvatarSrc(src, size = 64) {
 	}
 	return src;
 }
-
-module.exports = formatAvatarSrc;

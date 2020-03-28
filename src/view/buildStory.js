@@ -1,8 +1,10 @@
-const { JSDOM } = require('jsdom');
-const buildHeader = require('./buildHeader.js');
-const buildUpdate = require('./buildUpdate.js');
+import jsdom from 'jsdom';
+import buildHeader from './buildHeader.js';
+import buildUpdate from './buildUpdate.js';
 
-function buildStory(dom, metadata, chapters) {
+const {JSDOM} = jsdom;
+
+export default function buildStory(dom, metadata, chapters) {
 	const doc = dom.window.document;
 
 	// Add header
@@ -38,7 +40,7 @@ function buildStory(dom, metadata, chapters) {
 				$targetContainer = $appendix;
 				appendixIds.push(id);
 			}
-			if (bm['isFirst']){
+			if (bm['isFirst']) {
 				previousContentPageId = id;
 			}
 			$targetContainer.appendChild(JSDOM.fragment(`
@@ -84,5 +86,3 @@ function buildStory(dom, metadata, chapters) {
 		}
 	}
 }
-
-module.exports = buildStory;

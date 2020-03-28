@@ -1,9 +1,7 @@
-'use strict';
+import fs from 'fs-extra';
+import path from 'path';
 
-const fs = require('fs-extra');
-const path = require('path');
-
-class Logger {
+export default class Logger {
 	constructor(settings = {}) {
 		this._logDebug = settings.debug === undefined ? true : settings.debug;
 		this._logLog = settings.log === undefined ? true : settings.log;
@@ -65,5 +63,3 @@ class Logger {
 		return (new Date()).toISOString();
 	}
 }
-
-module.exports = Logger;

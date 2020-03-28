@@ -1,22 +1,24 @@
-const fs = require('fs-extra');
-const path = require('path');
-const querystring = require('querystring');
-const { JSDOM } = require('jsdom');
-const Striver = require('./Striver.js');
-const Throttler = require('./Throttler.js');
-const downloadImage = require('./downloadImage.js');
+import fs from 'fs-extra';
+import jsdom from 'jsdom';
+import path from 'path';
+import downloadImage from './downloadImage.js';
+import Striver from './Striver.js';
+import Throttler from './Throttler.js';
 
+const {JSDOM} = jsdom;
 
 // The values Akun uses for different story sort methods
 const SORT_MODES = Object.freeze({
-	UPDATED: 'Latest',
-	NEW: 'new'
+	LATEST: 'Latest',
+	UPDATED_CHAPTER: 'UpdatedChapter',
+	NEW: 'new',
+	TOP: 'top'
 });
 
 // The number of posts Akun has per page of story chat
 const postsPerPage = 30;
 
-class Scraper {
+export default class Scraper {
 	static getAuthor(node) {
 		if (node['u']) {
 			if (node['u'].length) {
@@ -130,7 +132,7 @@ class Scraper {
 
 		this._akun = this._settings.akun;
 		this._logger = this._settings.logger;
-		this._striver = new Striver({ waitTime: 500, logger: this._logger });
+		this._striver = new Striver({waitTime: 500, logger: this._logger});
 	}
 
 	async logFatQuest(storyId) {
@@ -138,7 +140,7 @@ class Scraper {
 		await fs.ensureDir(this._settings.outputDirectory);
 		let fatQuests = [];
 		try {
-			fatQuests = await fs.readJson(fatQuestsPath, { fatal: false }) || [];
+			fatQuests = await fs.readJson(fatQuestsPath, {fatal: false}) || [];
 		} catch (err) {
 			// File hasn't been made before
 		}
@@ -146,17 +148,18 @@ class Scraper {
 		await fs.writeJson(fatQuestsPath, fatQuests);
 	}
 
-	async archiveAllStories({ startPage = 1, endPage = 1000, skipChat = false, sortType = Scraper.SORT_MODES.NEW, skip = [], downloadImages = true }) {
+	async archiveAllStories({startPage = 1, endPage = 1000, skipChat = false, sortType = Scraper.SORT_MODES.NEW, skip = [], downloadImages = true}) {
 		for (let storyPageIndex = startPage; storyPageIndex < endPage; storyPageIndex++) {
 			this._logger.log(`Archiving page ${storyPageIndex}`);
-			const storyIds = await this.getStoryList(storyPageIndex, sortType);
+			const {stories} = await this._akun.getStories('stories', storyPageIndex, {sort: sortType});
+			const storyIds = stories.map(({_id}) => _id);
 
 			for (const storyId of storyIds) {
 				if (skip.includes(storyId)) {
 					this._logger.log(`Skipping ${storyId}`);
 				} else {
 					try {
-						await this.archiveStory({ storyId, skipChat, downloadImages });
+						await this.archiveStory({storyId, skipChat, downloadImages});
 					} catch (err) {
 						this._logger.error(`Unable to archive story ${storyId}: ${err}`);
 						await this.logFatQuest(storyId);
@@ -166,7 +169,7 @@ class Scraper {
 		}
 	}
 
-	async archiveStory({ storyId, skipChat = false, user, downloadImages = true }) {
+	async archiveStory({storyId, skipChat = false, user, downloadImages = true}) {
 		this._logger.log(`Archiving ${storyId}`);
 		// I realised that trying to take an existing archive and only fetch new data means that edits wouldn't be picked up, which is unacceptable, so yay
 		const imageUrls = new Set();
@@ -174,7 +177,7 @@ class Scraper {
 		let chat = [];
 
 		const metaData = await this._striver.handle(() => {
-			return this._api(`node/${storyId}`);
+			return this._api(`/api/node/${storyId}`);
 		});
 		const author = user || Scraper.getAuthor(metaData);
 		const storyTitle = Scraper.getStoryTitle(metaData);
@@ -188,16 +191,23 @@ class Scraper {
 			Scraper.addImageUrlsFromMetadata(metaData, imageUrls);
 		}
 
-		try {
-			const chapters = await this._striver.handle(() => {
-				return this._api(`anonkun/chapters/${storyId}/0/9999999999999998`);
-			}, 30);
-			for (const chapter of chapters) {
-				story.push(chapter);
+		const chapterTimestamps = metaData['bm'] ? metaData['bm'].map(({ct}) => ct) : [];
+		chapterTimestamps.push(9999999999999998);
+
+		let startCt = 0;
+		for (const ct of chapterTimestamps) {
+			try {
+				const chapters = await this._striver.handle(() => {
+					return this._api(`/api/anonkun/chapters/${storyId}/${startCt}/${ct}`);
+				}, 30);
+				for (const chapter of chapters) {
+					story.push(chapter);
+				}
+			} catch (err) {
+				await this.logFatQuest(storyId);
+				return;
 			}
-		} catch (err) {
-			await this.logFatQuest(storyId);
-			return;
+			startCt = ct;
 		}
 
 		await fs.outputJson(path.join(archivePath, `${storyId}.chapters.json`), story);
@@ -207,13 +217,13 @@ class Scraper {
 
 		if (!skipChat) {
 			const latestChat = await this._striver.handle(() => {
-				return this._api(`chat/${storyId}/latest`);
+				return this._api(`/api/chat/${storyId}/latest`);
 			});
 
 			if (latestChat.length) {
 				try {
 					const totalPosts = (await this._striver.handle(() => {
-						return this._api(`chat/pages`, { 'r': storyId });
+						return this._api(`/api/chat/pages`, {data: {'r': storyId}});
 					}))['count'];
 
 					const finalPageIndex = Math.ceil(totalPosts / postsPerPage);
@@ -230,7 +240,7 @@ class Scraper {
 						pagePostData['page'] = pageIndex;
 						try {
 							const posts = await this._striver.handle(() => {
-								return this._api(`chat/page`, pagePostData);
+								return this._api(`/api/chat/page`, {data: pagePostData});
 							}, retryAttempts);
 							chat.push(...posts);
 							retryAttempts = 10;
@@ -295,45 +305,24 @@ class Scraper {
 		this._logger.log(`Saved`);
 	}
 
-	async getStoryList(storyPageIndex, sortType) {
-		const queryParameters = {
-			'contentRating[teen]': true,
-			'contentRating[nsfw]': true,
-			'contentRating[mature]': true,
-			'storyStatus[active]': true,
-			'storyStatus[finished]': true,
-			'storyStatus[hiatus]': true,
-			'sort': sortType,
-			'threads': undefined,
-		};
-
-		const storyList = await this._striver.handle(() => {
-			return this._api(`anonkun/board/stories/${storyPageIndex}?${querystring.stringify(queryParameters)}`);
-		});
-
-		return storyList['stories'].map(story => {
-			return story['_id'];
-		});
-	}
-
 	async getStoyIdsFromUser(username) {
 		let user;
 		try {
-			user = await this._api(`user/${username}`);
+			user = await this._api(`/api/user/${username}`);
 		} catch (err) {
 			this._logger.error(`Couldn't find user: ${username}\n${err}`);
 			throw err;
 		}
-		const stories = await this._api(`anonkun/userStories/${user['_id']}`);
+		const stories = await this._api(`/api/anonkun/userStories/${user['_id']}`);
 		return stories.map(story => story['_id']);
 	}
 
 	async isIdStory(id) {
 		try {
 			const metaData = await this._striver.handle(() => {
-				return this._api(`node/${id}`);
+				return this._api(`/api/node/${id}`);
 			});
-			return metaData['_id'] === id;
+			return metaData['nt'] === 'story';
 		} catch (err) {
 			this._logger.debug(`${id} deemed to not be a story`, err);
 			return false;
@@ -343,7 +332,7 @@ class Scraper {
 	async isIdUser(username) {
 		try {
 			const userData = await this._striver.handle(() => {
-				return this._api(`user/${username}`);
+				return this._api(`/api/user/${username}`);
 			});
 			return userData['username'] === username;
 		} catch (err) {
@@ -353,9 +342,12 @@ class Scraper {
 	}
 
 	_api(path, postData) {
-		this._logger.debug(path, JSON.stringify(postData));
-		return this._akun.core.api(path, postData);
+		if (postData) {
+			this._logger.debug(path, JSON.stringify(postData));
+			return this._akun.post(path, {data: postData});
+		} else {
+			this._logger.debug(path);
+			return this._akun.get(path);
+		}
 	}
 }
-
-module.exports = Scraper;

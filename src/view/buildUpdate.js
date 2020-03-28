@@ -1,12 +1,14 @@
-const { JSDOM } = require('jsdom');
-const formatTimestamp = require('./formatTimestamp.js');
-const buildUpdateAuthor = require('./buildUpdateAuthor.js');
-const buildChapter = require('./buildChapter.js');
-const buildChoice = require('./buildChoice.js');
-const buildReaderPost = require('./buildReaderPost.js');
-const buildUnrecognisedUpdateType = require('./buildUnrecognisedUpdateType.js');
+import jsdom from 'jsdom';
+import buildChapter from './buildChapter.js';
+import buildChoice from './buildChoice.js';
+import buildReaderPost from './buildReaderPost.js';
+import buildUnrecognisedUpdateType from './buildUnrecognisedUpdateType.js';
+import buildUpdateAuthor from './buildUpdateAuthor.js';
+import formatTimestamp from './formatTimestamp.js';
 
-function buildUpdate(update) {
+const {JSDOM} = jsdom;
+
+export default function buildUpdate(update) {
 	const $update = JSDOM.fragment(`
 <div id="${update['_id']}" class="update ${update['nt']}">
 	<div class="contentMetadata">
@@ -38,5 +40,3 @@ function buildUpdate(update) {
 	}
 	return $update;
 }
-
-module.exports = buildUpdate;

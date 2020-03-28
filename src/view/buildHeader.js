@@ -1,8 +1,10 @@
-const { JSDOM } = require('jsdom');
-const buildAuthor = require('./buildAuthor.js');
-const removeElement = require('./removeElement.js');
+import jsdom from 'jsdom';
+import buildAuthor from './buildAuthor.js';
+import removeElement from './removeElement.js';
 
-function buildHeader(metadata) {
+const {JSDOM} = jsdom;
+
+export default function buildHeader(metadata) {
 	const $header = JSDOM.fragment(`
 <div id="header">
 	<img class="coverImage" alt="Cover Image">
@@ -43,5 +45,3 @@ function buildTag(tag, isSpoiler) {
 		return null;
 	}
 }
-
-module.exports = buildHeader;

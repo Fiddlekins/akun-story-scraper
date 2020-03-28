@@ -1,11 +1,14 @@
-const fs = require('fs-extra');
-const path = require('path');
-const { JSDOM } = require('jsdom');
-const prettyMs = require('pretty-ms');
-const buildStory = require('./buildStory.js');
-const getCSS = require('./getCSS.js');
+import fs from 'fs-extra';
 
-async function buildView(dataPath, outputPath = dataPath) {
+import jsdom from 'jsdom';
+import path from 'path';
+import prettyMs from 'pretty-ms';
+import buildStory from './buildStory.js';
+import getCSS from './getCSS.js';
+
+const {JSDOM} = jsdom;
+
+export default async function buildView(dataPath, outputPath = dataPath) {
 	const timeStart = Date.now();
 	const name = dataPath.split(/[\\\/]/g).pop();
 	const files = await fs.readdir(dataPath);
@@ -35,6 +38,8 @@ async function buildView(dataPath, outputPath = dataPath) {
 
 	const dom = new JSDOM(`<!DOCTYPE html>`);
 	const css = await getCSS();
+	const meta = JSDOM.fragment(`<meta charset="utf-8"/>`);
+	dom.window.document.querySelector('head').appendChild(meta);
 	const style = JSDOM.fragment(`<style>${css}</style>`);
 	dom.window.document.querySelector('head').appendChild(style);
 
@@ -45,5 +50,3 @@ async function buildView(dataPath, outputPath = dataPath) {
 	const timeElapsed = Date.now() - timeStart;
 	console.log(`Built view in ${prettyMs(timeElapsed)} for ${name}`);
 }
-
-module.exports = buildView;

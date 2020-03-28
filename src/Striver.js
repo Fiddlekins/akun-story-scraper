@@ -1,6 +1,4 @@
-'use strict';
-
-class Striver {
+export default class Striver {
 	constructor(settings) {
 		this._waitTime = settings.waitTime || 500;
 		this._logger = settings.logger;
@@ -60,5 +58,3 @@ class Striver {
 		}
 	}
 }
-
-module.exports = Striver;

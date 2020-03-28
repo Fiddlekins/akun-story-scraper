@@ -1,12 +1,14 @@
-const { JSDOM } = require('jsdom');
-const escape = require('escape-html');
+import escape from 'escape-html';
+import jsdom from 'jsdom';
 
-function buildChoice($content, update) {
+const {JSDOM} = jsdom;
+
+export default function buildChoice($content, update) {
 	if (update['choices'] && update['choices'].length) {
 		// Convert poll data into something more coherent
 		let voterCount = 0;
 		const reassembledPoll = update['choices'].map(text => {
-			return { text, count: 0 };
+			return {text, count: 0};
 		});
 		if (update['votes']) {
 			if (update['multiple']) {
@@ -87,5 +89,3 @@ function buildChoice($content, update) {
 		});
 	}
 }
-
-module.exports = buildChoice;

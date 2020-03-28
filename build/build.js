@@ -1,11 +1,9 @@
-'use strict';
+import archiver from 'archiver';
+import fs from 'fs-extra';
+import path from 'path';
+import {fileURLToPath} from "url";
 
-const fs = require('fs-extra');
-const path = require('path');
-const archiver = require('archiver');
-const packageJson = require('../package.json');
-
-const projectRoot = path.join(__dirname, '..');
+const projectRoot = path.join(fileURLToPath(import.meta.url), '..', '..');
 const stagePath = path.join(projectRoot, 'stage');
 const outputPath = path.join(projectRoot, 'dest');
 
@@ -39,11 +37,12 @@ async function createLauncher() {
 	await fs.writeFile(path.join(stagePath, 'run.cmd'), launcherContent, 'utf8');
 }
 
-function zip() {
+async function zip() {
+	const packageJson = await fs.readJson(path.join(projectRoot, 'package.json'));
 	return new Promise((res, rej) => {
 		var output = fs.createWriteStream(path.join(outputPath, `${packageJson.name}.${packageJson.version}.zip`));
 		var archive = archiver('zip', {
-			zlib: { level: 9 }
+			zlib: {level: 9}
 		});
 		output.on('close', function () {
 			res();

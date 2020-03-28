@@ -1,6 +1,6 @@
-const fs = require('fs-extra');
+import fs from 'fs-extra';
 
-async function isFolderStoryArchive(folderPath) {
+export default async function isFolderStoryArchive(folderPath) {
 	try {
 		const files = await fs.readdir(folderPath);
 		let metadata = false;
@@ -20,5 +20,3 @@ async function isFolderStoryArchive(folderPath) {
 		return false;
 	}
 }
-
-module.exports = isFolderStoryArchive;

@@ -1,7 +1,9 @@
-const { JSDOM } = require('jsdom');
-const formatAvatarSrc = require('./formatAvatarSrc.js');
+import jsdom from 'jsdom';
+import formatAvatarSrc from './formatAvatarSrc.js';
 
-function buildUpdateAuthor(username, avatar) {
+const {JSDOM} = jsdom;
+
+export default function buildUpdateAuthor(username, avatar) {
 	if (username) {
 		if (avatar) {
 			return JSDOM.fragment(`
@@ -19,5 +21,3 @@ function buildUpdateAuthor(username, avatar) {
 		return null;
 	}
 }
-
-module.exports = buildUpdateAuthor;

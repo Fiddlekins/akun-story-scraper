@@ -1,4 +1,4 @@
-class Throttler {
+export default class Throttler {
 	constructor(options = {}) {
 		this._maxConcurrentPromises = options.maxConcurrentPromises || 20;
 		this._retryAttempts = options.retryAttempts || 5;
@@ -45,5 +45,3 @@ class Throttler {
 		}
 	}
 }
-
-module.exports = Throttler;

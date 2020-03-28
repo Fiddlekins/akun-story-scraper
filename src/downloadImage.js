@@ -1,9 +1,9 @@
-const fs = require('fs-extra');
-const path = require('path');
-const { Transform } = require('stream');
-const request = require('request');
-const imageType = require('image-type');
-const sanitize = require("sanitize-filename");
+import fs from 'fs-extra';
+import imageType from 'image-type';
+import path from 'path';
+import request from 'request';
+import sanitize from 'sanitize-filename';
+import {Transform} from 'stream';
 
 class ImageTypeIntercept extends Transform {
 	constructor(options) {
@@ -21,9 +21,9 @@ class ImageTypeIntercept extends Transform {
 	}
 }
 
-async function downloadImage(imageUrl, dest) {
+export default async function downloadImage(imageUrl, dest) {
 	const url = new URL(imageUrl);
-	const segments = url.href.replace(`${url.protocol}//`, '').split('/').map(segment => sanitize(segment, { replacement: '!' }));
+	const segments = url.href.replace(`${url.protocol}//`, '').split('/').map(segment => sanitize(segment, {replacement: '!'}));
 	let imagePath = path.join(...segments);
 
 	await fs.ensureDir(path.join(dest, path.dirname(imagePath)));
@@ -46,19 +46,28 @@ async function downloadImage(imageUrl, dest) {
 			intercept.on('imageType', (type) => {
 				try {
 					if (type) {
-						const { ext } = type;
+						const {ext} = type;
 						if (path.extname(imagePath) !== `.${ext}`) {
 							imagePath += `.${ext}`;
 						}
 					}
-					const fileWriteable = fs.createWriteStream(path.join(dest, imagePath), { encoding: null });
+					const fileWriteable = fs.createWriteStream(path.join(dest, imagePath), {encoding: null});
 					intercept.pipe(fileWriteable);
 					fileWriteable.once('close', () => {
 						res();
 					});
+					fileWriteable.once('error', (err) => {
+						rej(err);
+					});
 				} catch (err) {
 					rej(err);
 				}
+			});
+			imageReadable.once('error', (err) => {
+				rej(err);
+			});
+			intercept.once('error', (err) => {
+				rej(err);
 			});
 		} catch (err) {
 			rej(err);
@@ -67,5 +76,3 @@ async function downloadImage(imageUrl, dest) {
 
 	return imagePath;
 }
-
-module.exports = downloadImage;

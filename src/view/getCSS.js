@@ -1,11 +1,13 @@
-const fs = require('fs-extra');
-const path = require('path');
-const crypto = require('crypto');
-const postcss = require('postcss');
-const precss = require('precss');
-const cssnano = require('cssnano');
-const autoprefixer = require('autoprefixer');
+import autoprefixer from 'autoprefixer';
+import crypto from 'crypto';
+import cssnano from 'cssnano';
+import fs from 'fs-extra';
+import path from 'path';
+import postcss from 'postcss';
+import precss from 'precss';
+import {fileURLToPath} from "url";
 
+const __dirname = path.join(fileURLToPath(import.meta.url), '..');
 let loadCSSPromise;
 
 async function loadCSS() {
@@ -26,16 +28,14 @@ async function loadCSS() {
 }
 
 async function buildCSS(pcss) {
-	const { css } = await postcss([precss, autoprefixer, cssnano])
-		.process(pcss, { from: 'src/app.css', to: 'dest/app.css' }); // from and to should be set properly to generate useful sourcemaps, but I haven't bothered
+	const {css} = await postcss([precss, autoprefixer, cssnano])
+		.process(pcss, {from: 'src/app.css', to: 'dest/app.css'}); // from and to should be set properly to generate useful sourcemaps, but I haven't bothered
 	return css;
 }
 
-async function getCSS() {
+export default async function getCSS() {
 	if (!loadCSSPromise) {
 		loadCSSPromise = loadCSS();
 	}
 	return await loadCSSPromise;
 }
-
-module.exports = getCSS;
