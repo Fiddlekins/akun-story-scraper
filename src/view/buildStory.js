@@ -53,6 +53,9 @@ export default function buildStory(dom, metadata, chapters) {
 	// Add Content
 	for (let update of chapters) {
 		const $update = buildUpdate(update);
+		if (!$update) {
+			continue;
+		}
 		if (contentsPageExists) {
 			// Get content page id from title
 			let contentPageId = contentPageTitleToIdMap[update['t']];

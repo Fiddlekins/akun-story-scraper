@@ -176,9 +176,18 @@ export default class Scraper {
 		const story = [];
 		let chat = [];
 
-		const metaData = await this._striver.handle(() => {
-			return this._api(`/api/node/${storyId}`);
-		});
+		let metaData;
+		try {
+			metaData = await this._striver.handle(() => {
+				return this._api(`/api/node/${storyId}`);
+			});
+		} catch (err) {
+			this._logger.log(`Metadata inaccessible for storyId ${storyId}, using fallback user 'anon' and title 'undefined'`);
+			// Make it up instead in case the story nodes are still available
+			metaData = {
+				_id: storyId
+			}
+		}
 		const author = user || Scraper.getAuthor(metaData);
 		const storyTitle = Scraper.getStoryTitle(metaData);
 		this._logger.log(`Archiving ${storyTitle} by ${author}`);

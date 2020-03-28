@@ -35,6 +35,8 @@ export default function buildUpdate(update) {
 		case 'readerPost':
 			buildReaderPost($content, update);
 			break;
+		case 'review':
+			return null;
 		default:
 			buildUnrecognisedUpdateType($content, update);
 	}

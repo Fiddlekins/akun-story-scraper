@@ -6,6 +6,7 @@ import {fileURLToPath} from "url";
 const projectRoot = path.join(fileURLToPath(import.meta.url), '..', '..');
 const stagePath = path.join(projectRoot, 'stage');
 const outputPath = path.join(projectRoot, 'dest');
+const packageJsonPath = path.join(projectRoot, 'package.json');
 
 async function ensureDirsExist() {
 	await Promise.all([
@@ -23,6 +24,7 @@ async function emptyDirs() {
 
 async function copyCode() {
 	await Promise.all([
+		fs.copy(packageJsonPath, path.join(stagePath, 'package.json')),
 		fs.copy(path.join(projectRoot, 'src'), path.join(stagePath, 'src')),
 		fs.copy(path.join(projectRoot, 'node_modules'), path.join(stagePath, 'node_modules'))
 	]);
@@ -38,7 +40,7 @@ async function createLauncher() {
 }
 
 async function zip() {
-	const packageJson = await fs.readJson(path.join(projectRoot, 'package.json'));
+	const packageJson = await fs.readJson(packageJsonPath);
 	return new Promise((res, rej) => {
 		var output = fs.createWriteStream(path.join(outputPath, `${packageJson.name}.${packageJson.version}.zip`));
 		var archive = archiver('zip', {
