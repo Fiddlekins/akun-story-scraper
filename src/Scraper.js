@@ -232,7 +232,7 @@ export default class Scraper {
 			if (latestChat.length) {
 				try {
 					const totalPosts = (await this._striver.handle(() => {
-						return this._api(`/api/chat/pages`, {data: {'r': storyId}});
+						return this._api(`/api/chat/pages`, {'r': storyId});
 					}))['count'];
 
 					const finalPageIndex = Math.ceil(totalPosts / postsPerPage);
@@ -249,7 +249,7 @@ export default class Scraper {
 						pagePostData['page'] = pageIndex;
 						try {
 							const posts = await this._striver.handle(() => {
-								return this._api(`/api/chat/page`, {data: pagePostData});
+								return this._api(`/api/chat/page`, pagePostData);
 							}, retryAttempts);
 							chat.push(...posts);
 							retryAttempts = 10;
