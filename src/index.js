@@ -11,46 +11,10 @@ import isFolderStoryArchive from './isFolderStoryArchive.js';
 import Logger from './Logger.js';
 import Scraper from './Scraper.js';
 import buildView from './view/buildView.js';
+import {readOrAskForCredentials} from "./credentials.js";
 
 const logger = new Logger();
 const projectRoot = path.join(fileURLToPath(import.meta.url), '..', '..');
-
-async function getCredentials() {
-	let credentialsJson;
-	try {
-		credentialsJson = await fs.readFile('credentials.json', 'utf8');
-	} catch (err) {
-		// File doesn't exist, move on
-		return null;
-	}
-	let credentials;
-	try {
-		credentials = JSON.parse(credentialsJson);
-	} catch (err) {
-		logger.error(`credentials.json found but not in valid JSON format`);
-		return null;
-	}
-	if (credentials.username && credentials.password) {
-		return credentials;
-	} else {
-		logger.error(`credentials.json found but doesn't contain both username and password values`);
-		return null;
-	}
-}
-
-async function setCredentials(credentials) {
-	await fs.writeFile('credentials.json', JSON.stringify(credentials, null, '\t'), 'utf8');
-}
-
-async function confirmCredentials(akun, credentials) {
-	let res;
-	try {
-		res = await akun.login(credentials.username, credentials.password);
-	} catch (err) {
-		throw new Error(`Unable to login: ${err}`);
-	}
-	logger.log(`Logged in as ${res['username']}!`);
-}
 
 async function start() {
 
@@ -82,37 +46,11 @@ async function start() {
 		return;
 	}
 
-	let credentials = await getCredentials();
-	const storedCredentialsFound = !!credentials;
-	if (!storedCredentialsFound) {
-		console.log('No stored credentials available, please input account details (recommended to use a new dummy account)');
-		credentials = await inquirer.prompt([
-			{
-				type: 'input',
-				name: 'username',
-				message: 'Username:'
-			},
-			{
-				type: 'password',
-				name: 'password',
-				message: 'Password:'
-			}
-		]);
-	}
 	const akun = new Akun({
 		hostname: 'fiction.live'
 	});
-	await confirmCredentials(akun, credentials);
-	if (!storedCredentialsFound) {
-		const {saveCredentials} = await inquirer.prompt({
-			type: 'confirm',
-			name: 'saveCredentials',
-			message: 'Store credentials for next time? (Warning: will be stored in plaintext)'
-		});
-		if (saveCredentials) {
-			await setCredentials(credentials);
-		}
-	}
+
+	await readOrAskForCredentials(akun, logger);
 
 	const {outputDirectory} = await inquirer.prompt({
 		type: 'input',
