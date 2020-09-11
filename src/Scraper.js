@@ -173,7 +173,7 @@ export default class Scraper {
 					this._logger.log(`Skipping ${storyId}`);
 				} else {
 					try {
-						await this.archiveStory({storyId, skipChat, downloadImages});
+						await this.archiveStory({storyId, chatMode: skipChat ? 'skip' : 'fetch', downloadImages});
 					} catch (err) {
 						this._logger.error(`Unable to archive story ${storyId}: ${err}`);
 						await this.logFatQuest(storyId);
@@ -183,7 +183,7 @@ export default class Scraper {
 		}
 	}
 
-	async archiveStory({storyId, skipChat = false, user, downloadImages = true, saver}) {
+	async archiveStory({storyId, chatMode = 'fetch', user, downloadImages = true, saver}) {
 		saver = saver || new DefaultSaver({
 			workDir: this._settings.outputDirectory,
 		});
@@ -245,7 +245,8 @@ export default class Scraper {
 
 		Scraper.addImageUrlsFromStory(story, (url) => saver.addImage(url), this._logger);
 
-		if (!skipChat) {
+		let chat = [];
+		if (chatMode === 'fetch') {
 			this._logger.log(`Fetching chat log`);
 
 			const latestChat = await this._striver.handle(() => {
@@ -253,6 +254,7 @@ export default class Scraper {
 			});
 
 			if (latestChat.length) {
+				let totalNews = 0;
 				try {
 					const totalPosts = (await this._striver.handle(() => {
 						return this._api(`/api/chat/pages`, {'r': storyId});
@@ -275,6 +277,7 @@ export default class Scraper {
 								return this._api(`/api/chat/page`, pagePostData);
 							}, retryAttempts);
 							const news = saver.addChatPosts(posts);
+							totalNews += news;
 							this._logger.log(`Page ${pageIndex}/${finalPageIndex}: +${news} new messages`);
 							retryAttempts = 10;
 							if (posts.length) {
@@ -293,20 +296,21 @@ export default class Scraper {
 					this._logger.error(`Failed to start fetching chat: ${err}`);
 					saver.addChatFailure(err, 0, 0);
 				}
+				this._logger.log(`Total new messages: ${totalNews}`);
 			}
 
 			// Export chat after gathering it all so that interrupting the scraper doesn't result in quests having partially updated chunks of chat
 			this._logger.log(`Committing chat logs`);
-			const chat = await saver.commitChat(postsPerPage * 1000);
-
-			Scraper.addImageUrlsFromChat(chat, (url) => saver.addImage(url));
+			chat = await saver.commitChat(postsPerPage * 1000);
+		} else if (chatMode === 'read') {
+			chat = saver.getChat();
 		}
 
-		await saver.commitImageMap();
+		Scraper.addImageUrlsFromChat(chat, (url) => saver.addImage(url));
 
 		if (downloadImages) {
-			const imageUrls = new Set(saver.getAllImageUrls());
-			this._logger.log(`Downloading images...`);
+			const imageUrls = new Set(saver.getNewImageUrls());
+			this._logger.log(`Downloading images (${imageUrls.size} new)...`);
 			const throttler = new Throttler();
 			let counter = 0;
 			const promises = Array.from(imageUrls).map(imageUrl => {

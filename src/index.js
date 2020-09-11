@@ -195,7 +195,7 @@ async function targeted(scraper) {
 
 	for (const {storyId, skipChat, user} of targets) {
 		try {
-			await scraper.archiveStory({storyId, skipChat, user, downloadImages});
+			await scraper.archiveStory({storyId, chatMode: skipChat ? 'skip' : 'fetch', user, downloadImages});
 		} catch (err) {
 			logger.error(`Unable to archive story ${storyId}: ${err}`);
 			await scraper.logFatQuest(storyId);

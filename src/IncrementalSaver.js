@@ -1,39 +1,15 @@
 import fs from 'fs-extra';
 import path from 'path';
 import downloadImage from "./downloadImage.js";
+import {
+	getChaptersFileName,
+	getChatFileName,
+	getImagesFileName,
+	getMetadataFileName,
+	sanitise
+} from "./DefaultSaver.js";
 
-export function sanitise(string) {
-	string = string.replace(/\s|<br>/g, '-');
-	string = string.replace(/-+/g, '-');
-	const acceptedCharacters = /[A-z0-9\-]/;
-	let splitString = string.split('');
-	splitString = splitString.filter(char => {
-		return acceptedCharacters.test(char);
-	});
-	string = splitString.join('');
-	if (!string.length) {
-		string = 'ThisStringHadNoSafeCharacters';
-	}
-	return string;
-}
-
-export function getMetadataFileName(storyId) {
-	return `${storyId}.metadata.json`;
-}
-
-export function getChaptersFileName(storyId) {
-	return `${storyId}.chapters.json`;
-}
-
-export function getChatFileName(storyId, index) {
-	return `${storyId}.chat.${index}.json`;
-}
-
-export function getImagesFileName(storyId) {
-	return `${storyId}.imagemap.json`;
-}
-
-export default class DefaultSaver {
+export default class IncrementalSaver {
 
 	constructor({workDir}) {
 		this._workDir = workDir;
@@ -42,8 +18,7 @@ export default class DefaultSaver {
 		this._interpretedMeta = null;
 		this._chapters = [];
 		this._knownChapterIds = new Set();
-		this._chat = [];
-		this._knownChatIds = new Set();
+		this._chatPostById = new Map();
 		this._chatFailures = [];
 		this._images = new Map();
 	}
@@ -59,6 +34,26 @@ export default class DefaultSaver {
 		this._imagesPath = path.join(this._archiveDir, 'images');
 
 		await fs.outputJson(path.join(this._archiveDir, getMetadataFileName(this._interpretedMeta.storyId)), raw);
+
+		let chatFileIndex = 0;
+		while (true) {
+			const chatFilePath = path.join(this._archiveDir, getChatFileName(this._interpretedMeta.storyId, chatFileIndex));
+			if (await fs.pathExists(chatFilePath)) {
+				const oldMessages = await fs.readJson(chatFilePath);
+				this.addChatPosts(oldMessages);
+				chatFileIndex += 1;
+			} else {
+				break;
+			}
+		}
+
+		const imagesFilePath = path.join(this._archiveDir, getImagesFileName(this._interpretedMeta.storyId));
+		if (await fs.pathExists(imagesFilePath)) {
+			const oldImages = await fs.readJson(imagesFilePath);
+			for (const k of Object.getOwnPropertyNames(oldImages)) {
+				this._images.set(k, oldImages[k]);
+			}
+		}
 	}
 
 	setChapter(chapter) {
@@ -82,9 +77,15 @@ export default class DefaultSaver {
 	addChatPosts(posts) {
 		let news = 0;
 		for (const post of posts) {
-			if (!this._knownChatIds.has(post._id)) {
-				this._knownChatIds.add(post._id);
-				this._chat.push(post);
+			const oldPost = this._chatPostById.get(post._id);
+			let update = false;
+			if (!!oldPost) {
+				update = post.b !== oldPost.b;
+			} else {
+				update = true;
+			}
+			if (update) {
+				this._chatPostById.set(post._id, post);
 				news += 1;
 			}
 		}
@@ -101,15 +102,20 @@ export default class DefaultSaver {
 	}
 
 	getChat() {
-		return this._chat;
+		const chat = [];
+		for (const [id, post] of this._chatPostById.entries()) {
+			chat.push(post);
+		}
+		return chat;
 	}
 
 	async commitChat(chatOutputMaxLength) {
+		const chat = this.getChat();
 		let outputIndex = 0;
-		for (let i = 0; i < this._chat.length; i += chatOutputMaxLength) {
+		for (let i = 0; i < chat.length; i += chatOutputMaxLength) {
 			await fs.outputJson(
 				path.join(this._archiveDir, getChatFileName(this._interpretedMeta.storyId, outputIndex)),
-				this._chat.slice(i, i + chatOutputMaxLength)
+				chat.slice(i, i + chatOutputMaxLength)
 			);
 			outputIndex++;
 		}
@@ -119,15 +125,24 @@ export default class DefaultSaver {
 				this._chatFailures
 			);
 		}
-		return this._chat;
+		return chat;
 	}
 
 	addImage(url) {
-		this._images.set(url, "");
+		if (!this._images.has(url)) {
+			this._images.set(url, "");
+		}
 	}
 
 	getNewImageUrls() {
-		return this._images.keys();
+		function* filterImages(images) {
+			for (const [k, v] of images) {
+				if (v === "") {
+					yield k;
+				}
+			}
+		}
+		return filterImages(this._images);
 	}
 
 	async downloadImage(url) {
