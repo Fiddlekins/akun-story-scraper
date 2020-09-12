@@ -3,6 +3,7 @@ import Logger from './Logger.js';
 import Scraper from './Scraper.js';
 import {readOrAskForCredentials} from "./credentials.js";
 import IncrementalSaver from "./IncrementalSaver.js";
+import StoryList from "./yamlStoryList.js";
 
 const logger = new Logger({debug: false});
 
@@ -21,32 +22,25 @@ async function start() {
 		outputDirectory
 	});
 
-	await targeted(scraper, outputDirectory);
+	const storyList = new StoryList({workDir: outputDirectory});
+	const targets = await storyList.read();
 
-	logger.log('\n\nFinished archiving!');
-}
-
-async function targeted(scraper, outputDirectory) {
-	const targets = [{
-		storyId: 'nGZdw54rui4RWPx68',
-		// storyId: 'ezMa9rfweommJRhzt',
-	}];
-
-	for (const {storyId, skipChat, user} of targets) {
+	for (const {id, chatMode, downloadImages, author} of targets) {
 		try {
 			await scraper.archiveStory({
-				storyId,
-				chatMode: 'fetch',
-				// chatMode: 'read',
-				user,
-				downloadImages: true,
+				storyId: id,
+				chatMode,
+				user: author,
+				downloadImages,
 				saver: new IncrementalSaver({workDir: outputDirectory})
 			});
 		} catch (err) {
-			logger.error(`Unable to archive story ${storyId}: ${err}`);
-			await scraper.logFatQuest(storyId);
+			logger.error(`Unable to archive story ${id}: ${err}`);
+			await scraper.logFatQuest(id);
 		}
 	}
+
+	logger.log('\n\nFinished archiving!');
 }
 
 start().catch(console.error);
