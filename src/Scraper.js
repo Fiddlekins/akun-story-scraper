@@ -1,9 +1,9 @@
 import fs from 'fs-extra';
 import jsdom from 'jsdom';
 import path from 'path';
-import downloadImage from './downloadImage.js';
 import Striver from './Striver.js';
 import Throttler from './Throttler.js';
+import DefaultSaver from "./DefaultSaver.js";
 
 const {JSDOM} = jsdom;
 
@@ -18,23 +18,52 @@ const SORT_MODES = Object.freeze({
 // The number of posts Akun has per page of story chat
 const postsPerPage = 30;
 
-export default class Scraper {
-	static getAuthor(node) {
-		if (node['u']) {
-			if (node['u'].length) {
-				return node['u'][0]['n'] || node['u'][0]['_id'] || 'anon';
-			} else {
-				return node['u']['n'] || node['u']['_id'] || 'anon';
-			}
+function interpretMetadata(raw, override) {
+	const interpreted = {
+		storyId: raw._id,
+		sections: [],
+		appendices: [],
+	};
+
+	if (override.user) {
+		interpreted.author = override.user;
+	} else if (raw['u']) {
+		if (raw['u'].length) {
+			interpreted.author = raw['u'][0]['n'] || raw['u'][0]['_id'] || 'anon';
 		} else {
-			return 'anon';
+			interpreted.author = raw['u']['n'] || raw['u']['_id'] || 'anon';
+		}
+	} else {
+		interpreted.author = 'anon';
+	}
+
+	interpreted.storyTitle = raw['t'] || raw['b'] || 'undefined';
+
+	if (raw.bm) {
+		let prevSection = null;
+		for (const rawSection of raw.bm) {
+			if (rawSection.title.startsWith('#special ')) {
+				interpreted.appendices.push(rawSection);
+			} else {
+				const newSection = {
+					title: rawSection.title,
+					id: rawSection.id,
+					startTs: rawSection.ct,
+					endTs: 9999999999999998
+				};
+				interpreted.sections.push(newSection);
+				if (prevSection) {
+					prevSection.endTs = newSection.startTs;
+				}
+				prevSection = newSection;
+			}
 		}
 	}
 
-	static getStoryTitle(node) {
-		return node['t'] || node['b'] || 'undefined';
-	}
+	return interpreted;
+}
 
+export default class Scraper {
 	static stripUserIds(node) {
 		if (Array.isArray(node['u'])) {
 			for (let i = 0; i < node['u'].length; i++) {
@@ -50,79 +79,64 @@ export default class Scraper {
 		}
 	}
 
-	static sanitise(string) {
-		string = string.replace(/\s|<br>/g, '-');
-		string = string.replace(/-+/g, '-');
-		const acceptedCharacters = /[A-z0-9\-]/;
-		let splitString = string.split('');
-		splitString = splitString.filter(char => {
-			return acceptedCharacters.test(char);
-		});
-		string = splitString.join('');
-		if (!string.length) {
-			string = 'ThisStringHadNoSafeCharacters';
-		}
-		return string;
-	}
-
 	static get SORT_MODES() {
 		return SORT_MODES;
 	}
 
-	static addImageUrlsFromUser(users, urls) {
+	static addImageUrlsFromUser(users, sink) {
 		if (Array.isArray(users)) {
 			users.forEach(user => {
 				if (user['a']) {
-					urls.add(user['a']);
+					sink(user['a']);
 				}
 			});
 		} else {
 			if (users['a']) {
-				urls.add(users['a']);
+				sink(users['a']);
 			}
 		}
 	}
 
-	static addImageUrlsFromMetadata(metadata, urls) {
+	static addImageUrlsFromMetadata(metadata, sink) {
 		if (metadata['i']) {
 			if (Array.isArray(metadata['i'])) {
-				metadata['i'].forEach(url => urls.add(url));
+				metadata['i'].forEach(url => sink(url));
 			} else {
-				urls.add(metadata['i']);
+				sink(metadata['i']);
 			}
 		}
 		if (metadata['u']) {
-			Scraper.addImageUrlsFromUser(metadata['u'], urls);
+			Scraper.addImageUrlsFromUser(metadata['u'], sink);
 		}
 	}
 
-	static addImageUrlsFromStory(story, urls, logger) {
+	static addImageUrlsFromStory(story, sink, logger) {
 		for (const update of story) {
 			if (update['nt'] === 'chapter') {
 				try {
 					const dom = JSDOM.fragment(update['b']);
-					dom.querySelectorAll('img').forEach(el => urls.add(el.src));
+					dom.querySelectorAll('img').forEach(el => sink(el.src));
 				} catch (err) {
 					logger.error(err);
 				}
 			}
 			if (update['u']) {
-				Scraper.addImageUrlsFromUser(update['u'], urls);
+				Scraper.addImageUrlsFromUser(update['u'], sink);
 			}
 		}
 	}
 
-	static addImageUrlsFromChat(chat, urls) {
+	static addImageUrlsFromChat(chat, sink) {
 		for (const post of chat) {
 			if (post['i']) {
 				if (Array.isArray(post['i'])) {
-					post['i'].forEach(url => urls.add(url));
+					post['i'].forEach(url => sink(url));
 				} else {
-					urls.add(post['i']);
+					sink(post['i']);
 				}
 			}
 			if (post['u']) {
-				Scraper.addImageUrlsFromUser(post['u'], urls);
+				Scraper.addImageUrlsFromUser(post['u'], sink);
 			}
 		}
 	}
@@ -169,12 +183,13 @@ export default class Scraper {
 		}
 	}
 
-	async archiveStory({storyId, skipChat = false, user, downloadImages = true}) {
+	async archiveStory({storyId, skipChat = false, user, downloadImages = true, saver}) {
+		saver = saver || new DefaultSaver({
+			workDir: this._settings.outputDirectory,
+		});
+
 		this._logger.log(`Archiving ${storyId}`);
 		// I realised that trying to take an existing archive and only fetch new data means that edits wouldn't be picked up, which is unacceptable, so yay
-		const imageUrls = new Set();
-		const story = [];
-		let chat = [];
 
 		let metaData;
 		try {
@@ -188,43 +203,51 @@ export default class Scraper {
 				_id: storyId
 			}
 		}
-		const author = user || Scraper.getAuthor(metaData);
-		const storyTitle = Scraper.getStoryTitle(metaData);
-		this._logger.log(`Archiving ${storyTitle} by ${author}`);
-		const archivePath = path.join(this._settings.outputDirectory, Scraper.sanitise(author), `${Scraper.sanitise(storyTitle).slice(0, 50)}_${storyId}`);
+		const metaInterpreted = interpretMetadata(metaData, {user});
+		if (metaInterpreted.storyId !== storyId) {
+			throw 'story ID in retrieved metadata does not match the requested ID';
+		}
+		this._logger.log(`Archiving ${metaInterpreted.storyTitle} by ${metaInterpreted.author}`);
+		await saver.setMetadata(metaData, metaInterpreted);
 
-		this._logger.log(`Saving to ${archivePath}`);
+		Scraper.addImageUrlsFromMetadata(metaData, (url) => saver.addImage(url));
 
-		await fs.outputJson(path.join(archivePath, `${storyId}.metadata.json`), metaData);
-		if (downloadImages) {
-			Scraper.addImageUrlsFromMetadata(metaData, imageUrls);
+		for (const [ix, section] of metaInterpreted.sections.entries()) {
+			const chapters = await this._striver.handle(() => {
+				return this._api(`/api/anonkun/chapters/${storyId}/${section.startTs}/${section.endTs}`);
+			}, 30);
+			const newChapters = chapters.reduce(
+				(acc, chapter) => {
+					let chapterIsNew;
+					if (chapter.t && chapter.t.startsWith("#special ")) {
+						chapterIsNew = saver.setAppendix(chapter);
+					} else {
+						chapterIsNew = saver.setChapter(chapter);
+					}
+					return acc + (chapterIsNew ? 1 : 0);
+				},
+				0
+			);
+			this._logger.log(`Section ${ix + 1}/${metaInterpreted.sections.length} "${section.title}": ${chapters.length} chapters, ${newChapters} new`);
 		}
 
-		const chapterTimestamps = metaData['bm'] ? metaData['bm'].map(({ct}) => ct) : [];
-		chapterTimestamps.push(9999999999999998);
-
-		let startCt = 0;
-		for (const ct of chapterTimestamps) {
-			try {
-				const chapters = await this._striver.handle(() => {
-					return this._api(`/api/anonkun/chapters/${storyId}/${startCt}/${ct}`);
-				}, 30);
-				for (const chapter of chapters) {
-					story.push(chapter);
-				}
-			} catch (err) {
-				await this.logFatQuest(storyId);
-				return;
-			}
-			startCt = ct;
+		// we probably caught all appendices when getting regular chapters, but let's double-check
+		for (const [ix, section] of metaInterpreted.appendices.entries()) {
+			const chapters = await this._striver.handle(() => {
+				return this._api(`/api/anonkun/chapters/${storyId}/${section.ct}/${section.ct + 1}`);
+			}, 30);
+			const newChapters = chapters.reduce((acc, chapter) => acc + (saver.setAppendix(chapter) ? 1 : 0), 0);
+			this._logger.log(`Appendix ${ix + 1}/${metaInterpreted.appendices.length} "${section.title}": ${chapters.length} chapters, ${newChapters} new`);
 		}
 
-		await fs.outputJson(path.join(archivePath, `${storyId}.chapters.json`), story);
-		if (downloadImages) {
-			Scraper.addImageUrlsFromStory(story, imageUrls, this._logger);
-		}
+		this._logger.log(`Committing chapters`);
+		const story = await saver.commitChapters();
+
+		Scraper.addImageUrlsFromStory(story, (url) => saver.addImage(url), this._logger);
 
 		if (!skipChat) {
+			this._logger.log(`Fetching chat log`);
+
 			const latestChat = await this._striver.handle(() => {
 				return this._api(`/api/chat/${storyId}/latest`);
 			});
@@ -251,7 +274,8 @@ export default class Scraper {
 							const posts = await this._striver.handle(() => {
 								return this._api(`/api/chat/page`, pagePostData);
 							}, retryAttempts);
-							chat.push(...posts);
+							const news = saver.addChatPosts(posts);
+							this._logger.log(`Page ${pageIndex}/${finalPageIndex}: +${news} new messages`);
 							retryAttempts = 10;
 							if (posts.length) {
 								pagePostData['lastCT'] = posts[posts.length - 1]['ct'];
@@ -259,56 +283,47 @@ export default class Scraper {
 								pagePostData['cpr'] = pageIndex;
 							}
 						} catch (err) {
-							this._logger.error(err);
-							chat.push({
-								failedToRetrieveChatPage: true,
-								postsPerPage,
-								pageIndex
-							});
+							this._logger.error(`Page ${pageIndex}/${finalPageIndex}: ${err}`);
+							saver.addChatFailure(err, postsPerPage, pageIndex);
 							retryAttempts = Math.max(Math.floor(retryAttempts * 0.6), 1);
 							// We did our best. It is time to move on.
 						}
 					}
 				} catch (err) {
-					chat.push({
-						failedToRetrieveChatPage: true,
-						reason: err
-					});
+					this._logger.error(`Failed to start fetching chat: ${err}`);
+					saver.addChatFailure(err, 0, 0);
 				}
 			}
 
 			// Export chat after gathering it all so that interrupting the scraper doesn't result in quests having partially updated chunks of chat
-			const chatOutputMaxLength = postsPerPage * 1000;
-			let outputIndex = 0;
-			for (let i = 0; i < chat.length; i += chatOutputMaxLength) {
-				await fs.outputJson(path.join(archivePath, `${storyId}.chat.${outputIndex}.json`), chat.slice(i, i + chatOutputMaxLength));
-				outputIndex++;
-			}
+			this._logger.log(`Committing chat logs`);
+			const chat = await saver.commitChat(postsPerPage * 1000);
 
-			if (downloadImages) {
-				Scraper.addImageUrlsFromChat(chat, imageUrls);
-			}
+			Scraper.addImageUrlsFromChat(chat, (url) => saver.addImage(url));
 		}
 
+		await saver.commitImageMap();
+
 		if (downloadImages) {
-			const imageMap = {};
-			const imagesPath = path.join(archivePath, 'images');
+			const imageUrls = new Set(saver.getAllImageUrls());
 			this._logger.log(`Downloading images...`);
 			const throttler = new Throttler();
-			const promises = [];
-			Array.from(imageUrls).forEach(imageUrl => {
-				const promiseGenerator = () => {
-					return downloadImage(imageUrl, imagesPath).then(imagePath => {
-						imageMap[imageUrl] = imagePath;
+			let counter = 0;
+			const promises = Array.from(imageUrls).map(imageUrl => {
+				const promiseGenerator = () => saver.downloadImage(imageUrl);
+				return throttler.queue(promiseGenerator)
+					.catch(err => {
+						this._logger.error(`Unable to download image ${imageUrl} due to:\n${err}`);
+					})
+					.then(() => {
+						counter += 1;
+						if (counter % 100 === 0 || counter === imageUrls.size) {
+							this._logger.log(`Processed ${counter}/${imageUrls.size} images`);
+						}
 					});
-				};
-				const promise = throttler.queue(promiseGenerator).catch(err => {
-					this._logger.error(`Unable to download image ${imageUrl} due to:\n${err}`);
-				});
-				promises.push(promise);
 			});
 			await Promise.all(promises);
-			await fs.outputJson(path.join(archivePath, `${storyId}.imagemap.json`), imageMap);
+			await saver.commitImageMap();
 		}
 
 		this._logger.log(`Saved`);
