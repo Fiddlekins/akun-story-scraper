@@ -4,10 +4,16 @@ import Scraper from './Scraper.js';
 import {readOrAskForCredentials} from "./credentials.js";
 import IncrementalSaver from "./IncrementalSaver.js";
 import StoryList from "./yamlStoryList.js";
+import clap from 'clap';
 
-const logger = new Logger({debug: false});
+const theCommand = clap.command("incremental [target...]")
+	.option('-v, --verbose', 'Verbose (debug) output');
 
 async function start() {
+	const cli = theCommand.run();
+
+	const logger = new Logger({debug: !!cli.options.verbose});
+
 	const akun = new Akun({
 		hostname: 'fiction.live'
 	});
@@ -23,7 +29,11 @@ async function start() {
 	});
 
 	const storyList = new StoryList({workDir: outputDirectory});
-	const targets = await storyList.read();
+	let targets = await storyList.read();
+	const selectedIds = new Set(cli.args);
+	if (selectedIds.size) {
+		targets = targets.filter((t) => selectedIds.has(t.id));
+	}
 
 	for (const {id, chatMode, downloadImages, author} of targets) {
 		try {

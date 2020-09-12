@@ -1,10 +1,12 @@
 # Incremental mode
 
-`cd` to your archive directory, then run `node /path/to/project/src/incremental.js [options]`.
+`cd` to your archive directory, then run `node /path/to/project/src/incremental.js [options] [target...]`.
 
 The archive directory may contain special files:
 - `credentials.json`
 - `targets.yaml`
+
+You can specify a list of target IDs as invocation arguments. If any are specified, the target list from the file is further restricted to the specified IDs. Adding new targets via command line is not supported yet.
 
 ## Credentials file
 
