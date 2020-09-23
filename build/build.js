@@ -31,7 +31,7 @@ async function copyCode() {
 }
 
 async function copyNode() {
-	await fs.copy(path.join(projectRoot, 'build', 'bin'), path.join(stagePath, 'bin'));
+	await fs.copy(process.execPath, path.join(stagePath, 'bin', 'node.exe'));
 }
 
 async function createLauncher() {

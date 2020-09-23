@@ -9,9 +9,11 @@ const {JSDOM} = jsdom;
 
 // The values Akun uses for different story sort methods
 const SORT_MODES = Object.freeze({
-	LATEST: 'Latest',
-	UPDATED_CHAPTER: 'UpdatedChapter',
 	NEW: 'new',
+	ACTIVE: 'active',
+	CHAPTER: 'chapter',
+	REPLIES: 'replies',
+	LIKE: 'like',
 	TOP: 'top'
 });
 
