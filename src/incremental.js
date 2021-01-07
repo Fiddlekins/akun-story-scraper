@@ -6,7 +6,7 @@ import IncrementalSaver from "./IncrementalSaver.js";
 import StoryList from "./yamlStoryList.js";
 import clap from 'clap';
 
-const theCommand = clap.command("incremental [target...]")
+const theCommand = clap.command("incremental")
 	.option('-v, --verbose', 'Verbose (debug) output');
 
 async function start() {
@@ -30,7 +30,7 @@ async function start() {
 
 	const storyList = new StoryList({workDir: outputDirectory});
 	let targets = await storyList.read();
-	const selectedIds = new Set(cli.args);
+	const selectedIds = new Set(cli.literalArgs);
 	if (selectedIds.size) {
 		targets = targets.filter((t) => selectedIds.has(t.id));
 	}
