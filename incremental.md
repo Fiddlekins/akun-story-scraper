@@ -38,6 +38,10 @@ QuestId1:
 # Default: skip
   chat: fetch
 
+# If true, an HTML representation of the quest will be built in the archive directory.
+# Default: false
+  html: true
+
 # If for some reason the scrapper can't determine the quest author's name, it can be set explicitly. Usually not needed.
 # Default: undefined
   author: kas

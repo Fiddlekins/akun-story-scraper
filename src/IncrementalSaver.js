@@ -56,6 +56,10 @@ export default class IncrementalSaver {
 		}
 	}
 
+	getArchiveDir() {
+		return this._archiveDir;
+	}
+
 	setChapter(chapter) {
 		if (this._knownChapterIds.has(chapter._id)) {
 			return false;

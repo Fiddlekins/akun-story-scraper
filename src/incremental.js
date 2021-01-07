@@ -5,6 +5,7 @@ import {readOrAskForCredentials} from "./credentials.js";
 import IncrementalSaver from "./IncrementalSaver.js";
 import StoryList from "./yamlStoryList.js";
 import clap from 'clap';
+import buildView from "./view/buildView.js";
 
 const theCommand = clap.command("incremental")
 	.option('-v, --verbose', 'Verbose (debug) output');
@@ -35,15 +36,20 @@ async function start() {
 		targets = targets.filter((t) => selectedIds.has(t.id));
 	}
 
-	for (const {id, chatMode, downloadImages, author} of targets) {
+	for (const {id, chatMode, downloadImages, author, html} of targets) {
 		try {
+			const saver = new IncrementalSaver({workDir: outputDirectory});
 			await scraper.archiveStory({
 				storyId: id,
 				chatMode,
 				user: author,
 				downloadImages,
-				saver: new IncrementalSaver({workDir: outputDirectory})
+				saver: saver
 			});
+
+			if (html) {
+				await buildView(saver.getArchiveDir(), saver.getArchiveDir());
+			}
 		} catch (err) {
 			logger.error(`Unable to archive story ${id}: ${err}`);
 			await scraper.logFatQuest(id);

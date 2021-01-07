@@ -22,6 +22,7 @@ export default class StoryList {
 					chatMode: storyConfig && storyConfig.chat || 'skip',
 					downloadImages: storyConfig && storyConfig.img || false,
 					author: storyConfig && storyConfig.author || undefined,
+					html: storyConfig && storyConfig.html || false,
 				};
 				this._stories.push(target);
 			}
