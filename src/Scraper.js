@@ -4,6 +4,7 @@ import path from 'path';
 import Striver from './Striver.js';
 import Throttler from './Throttler.js';
 import DefaultSaver from "./DefaultSaver.js";
+import {UpdateResult} from "./SaverBase.js";
 
 const {JSDOM} = jsdom;
 
@@ -214,23 +215,38 @@ export default class Scraper {
 
 		Scraper.addImageUrlsFromMetadata(metaData, (url) => saver.addImage(url));
 
+		const fetchAndProcessChapters = (chapters, sectionDescription) => {
+			const [newChapters, updatedChapters, sameChapters] = chapters.reduce(
+				(acc, chapter) => {
+					let chapterUpdateResult;
+					if (chapter.t && chapter.t.startsWith("#special ")) {
+						chapterUpdateResult = saver.setAppendix(chapter);
+					} else {
+						chapterUpdateResult = saver.setChapter(chapter);
+					}
+					switch (chapterUpdateResult) {
+						case UpdateResult.New:
+							acc[0] += 1;
+							break;
+						case UpdateResult.Updated:
+							acc[1] += 1;
+							break;
+						case UpdateResult.Same:
+							acc[2] += 1;
+							break;
+					}
+					return acc;
+				},
+				[0, 0, 0]
+			);
+			this._logger.log(`${sectionDescription}: same ${sameChapters} upd ${updatedChapters} new ${newChapters} chapters`);
+		}
+
 		for (const [ix, section] of metaInterpreted.sections.entries()) {
 			const chapters = await this._striver.handle(() => {
 				return this._api(`/api/anonkun/chapters/${storyId}/${section.startTs}/${section.endTs}`);
 			}, 30);
-			const newChapters = chapters.reduce(
-				(acc, chapter) => {
-					let chapterIsNew;
-					if (chapter.t && chapter.t.startsWith("#special ")) {
-						chapterIsNew = saver.setAppendix(chapter);
-					} else {
-						chapterIsNew = saver.setChapter(chapter);
-					}
-					return acc + (chapterIsNew ? 1 : 0);
-				},
-				0
-			);
-			this._logger.log(`Section ${ix + 1}/${metaInterpreted.sections.length} "${section.title}": ${chapters.length} chapters, ${newChapters} new`);
+			fetchAndProcessChapters(chapters, `Section ${ix + 1}/${metaInterpreted.sections.length} "${section.title}"`);
 		}
 
 		// we probably caught all appendices when getting regular chapters, but let's double-check
@@ -238,9 +254,10 @@ export default class Scraper {
 			const chapters = await this._striver.handle(() => {
 				return this._api(`/api/anonkun/chapters/${storyId}/${section.ct}/${section.ct + 1}`);
 			}, 30);
-			const newChapters = chapters.reduce((acc, chapter) => acc + (saver.setAppendix(chapter) ? 1 : 0), 0);
-			this._logger.log(`Appendix ${ix + 1}/${metaInterpreted.appendices.length} "${section.title}": ${chapters.length} chapters, ${newChapters} new`);
+			fetchAndProcessChapters(chapters, `Appendix ${ix + 1}/${metaInterpreted.appendices.length} "${section.title}"`);
 		}
+
+		this._logger.log(`All chapters processed: ${saver.updatedChapterCount} updated, ${saver.newChapterCount} new`);
 
 		this._logger.log(`Committing chapters`);
 		const story = await saver.commitChapters();

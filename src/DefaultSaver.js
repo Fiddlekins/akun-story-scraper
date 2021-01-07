@@ -1,29 +1,7 @@
 import fs from 'fs-extra';
 import path from 'path';
 import downloadImage from "./downloadImage.js";
-
-export function sanitise(string) {
-	string = string.replace(/\s|<br>/g, '-');
-	string = string.replace(/-+/g, '-');
-	const acceptedCharacters = /[A-z0-9\-]/;
-	let splitString = string.split('');
-	splitString = splitString.filter(char => {
-		return acceptedCharacters.test(char);
-	});
-	string = splitString.join('');
-	if (!string.length) {
-		string = 'ThisStringHadNoSafeCharacters';
-	}
-	return string;
-}
-
-export function getMetadataFileName(storyId) {
-	return `${storyId}.metadata.json`;
-}
-
-export function getChaptersFileName(storyId) {
-	return `${storyId}.chapters.json`;
-}
+import SaverBase from "./SaverBase.js";
 
 export function getChatFileName(storyId, index) {
 	return `${storyId}.chat.${index}.json`;
@@ -33,50 +11,16 @@ export function getImagesFileName(storyId) {
 	return `${storyId}.imagemap.json`;
 }
 
-export default class DefaultSaver {
+
+
+export default class DefaultSaver extends SaverBase {
 
 	constructor({workDir}) {
-		this._workDir = workDir;
-		this._archiveDir = null;
-		this._imagesPath = null;
-		this._interpretedMeta = null;
-		this._chapters = [];
-		this._knownChapterIds = new Set();
+		super({workDir});
 		this._chat = [];
 		this._knownChatIds = new Set();
 		this._chatFailures = [];
 		this._images = new Map();
-	}
-
-	async setMetadata(raw, interpreted) {
-		this._interpretedMeta = interpreted;
-
-		this._archiveDir = path.join(
-			this._workDir,
-			sanitise(this._interpretedMeta.author),
-			`${sanitise(this._interpretedMeta.storyTitle).slice(0, 50)}_${this._interpretedMeta.storyId}`
-		);
-		this._imagesPath = path.join(this._archiveDir, 'images');
-
-		await fs.outputJson(path.join(this._archiveDir, getMetadataFileName(this._interpretedMeta.storyId)), raw);
-	}
-
-	setChapter(chapter) {
-		if (this._knownChapterIds.has(chapter._id)) {
-			return false;
-		}
-		this._knownChapterIds.add(chapter._id);
-		this._chapters.push(chapter);
-		return true;
-	}
-
-	setAppendix(appendix) {
-		this.setChapter(appendix);
-	}
-
-	async commitChapters() {
-		await fs.outputJson(path.join(this._archiveDir, getChaptersFileName(this._interpretedMeta.storyId)), this._chapters);
-		return this._chapters;
 	}
 
 	addChatPosts(posts) {

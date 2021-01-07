@@ -1,39 +1,32 @@
 import fs from 'fs-extra';
 import path from 'path';
 import downloadImage from "./downloadImage.js";
-import {
-	getChaptersFileName,
-	getChatFileName,
-	getImagesFileName,
-	getMetadataFileName,
-	sanitise
-} from "./DefaultSaver.js";
+import {getChatFileName, getImagesFileName} from "./DefaultSaver.js";
+import SaverBase, {getChaptersFileName} from "./SaverBase.js";
 
-export default class IncrementalSaver {
+export default class IncrementalSaver extends SaverBase {
 
 	constructor({workDir}) {
-		this._workDir = workDir;
-		this._archiveDir = null;
-		this._imagesPath = null;
-		this._interpretedMeta = null;
-		this._chapters = [];
-		this._knownChapterIds = new Set();
+		super({workDir});
 		this._chatPostById = new Map();
 		this._chatFailures = [];
 		this._images = new Map();
 	}
 
 	async setMetadata(raw, interpreted) {
-		this._interpretedMeta = interpreted;
+		await super.setMetadata(raw, interpreted);
 
-		this._archiveDir = path.join(
-			this._workDir,
-			sanitise(this._interpretedMeta.author),
-			`${sanitise(this._interpretedMeta.storyTitle).slice(0, 50)}_${this._interpretedMeta.storyId}`
-		);
-		this._imagesPath = path.join(this._archiveDir, 'images');
-
-		await fs.outputJson(path.join(this._archiveDir, getMetadataFileName(this._interpretedMeta.storyId)), raw);
+		{
+			const chaptersFilePath = path.join(this._archiveDir, getChaptersFileName(this._interpretedMeta.storyId));
+			if (await fs.pathExists(chaptersFilePath)) {
+				const oldChapters = await fs.readJson(chaptersFilePath);
+				for (const ch of oldChapters) {
+					this.setChapter(ch);
+				}
+			}
+			this.newChapterCount = 0;
+			this.updatedChapterCount = 0;
+		}
 
 		let chatFileIndex = 0;
 		while (true) {
@@ -58,24 +51,6 @@ export default class IncrementalSaver {
 
 	getArchiveDir() {
 		return this._archiveDir;
-	}
-
-	setChapter(chapter) {
-		if (this._knownChapterIds.has(chapter._id)) {
-			return false;
-		}
-		this._knownChapterIds.add(chapter._id);
-		this._chapters.push(chapter);
-		return true;
-	}
-
-	setAppendix(appendix) {
-		this.setChapter(appendix);
-	}
-
-	async commitChapters() {
-		await fs.outputJson(path.join(this._archiveDir, getChaptersFileName(this._interpretedMeta.storyId)), this._chapters);
-		return this._chapters;
 	}
 
 	addChatPosts(posts) {
