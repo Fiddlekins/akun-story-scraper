@@ -87,24 +87,34 @@ async function scrape(scraper) {
 			message: 'Sort type (determines the order to archive quests in):',
 			choices: [
 				{
+					name: 'Sort by the newest stories',
+					value: Scraper.SORT_MODES.NEW,
+					short: 'new'
+				},
+				{
 					name: 'Sort by the latest activity in the story, including chat posts',
-					value: Scraper.SORT_MODES.LATEST,
-					short: 'Latest'
+					value: Scraper.SORT_MODES.ACTIVE,
+					short: 'active'
 				},
 				{
 					name: 'Sort by the latest posted chapter',
-					value: Scraper.SORT_MODES.UPDATED_CHAPTER,
-					short: 'UpdatedChapter'
+					value: Scraper.SORT_MODES.CHAPTER,
+					short: 'chapter'
+				},
+				{
+					name: 'Sort by the most commented stories',
+					value: Scraper.SORT_MODES.REPLIES,
+					short: 'replies'
+				},
+				{
+					name: 'Sort by the most liked stories',
+					value: Scraper.SORT_MODES.LIKE,
+					short: 'likes'
 				},
 				{
 					name: 'Sort by the most commented stories',
 					value: Scraper.SORT_MODES.TOP,
 					short: 'top'
-				},
-				{
-					name: 'Sort by the story creation time',
-					value: Scraper.SORT_MODES.NEW,
-					short: 'new'
 				}
 			]
 		},
