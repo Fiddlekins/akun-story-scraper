@@ -215,7 +215,7 @@ export default class Scraper {
 
 		Scraper.addImageUrlsFromMetadata(metaData, (url) => saver.addImage(url));
 
-		const fetchAndProcessChapters = (chapters, sectionDescription) => {
+		function fetchAndProcessChapters(chapters, sectionIndex, totalSections, sectionName) {
 			const [newChapters, updatedChapters, sameChapters] = chapters.reduce(
 				(acc, chapter) => {
 					let chapterUpdateResult;
@@ -239,22 +239,23 @@ export default class Scraper {
 				},
 				[0, 0, 0]
 			);
-			this._logger.log(`${sectionDescription}: same ${sameChapters} upd ${updatedChapters} new ${newChapters} chapters`);
+			this._logger.logSection(sectionIndex, totalSections, sectionName, sameChapters, updatedChapters, newChapters);
 		}
 
 		for (const [ix, section] of metaInterpreted.sections.entries()) {
 			const chapters = await this._striver.handle(() => {
 				return this._api(`/api/anonkun/chapters/${storyId}/${section.startTs}/${section.endTs}`);
 			}, 30);
-			fetchAndProcessChapters(chapters, `Section ${ix + 1}/${metaInterpreted.sections.length} "${section.title}"`);
+			fetchAndProcessChapters.call(this, chapters, ix + 1, metaInterpreted.sections.length, section.title);
 		}
 
 		// we probably caught all appendices when getting regular chapters, but let's double-check
+		this._logger.log('Double-checking appendices');
 		for (const [ix, section] of metaInterpreted.appendices.entries()) {
 			const chapters = await this._striver.handle(() => {
 				return this._api(`/api/anonkun/chapters/${storyId}/${section.ct}/${section.ct + 1}`);
 			}, 30);
-			fetchAndProcessChapters(chapters, `Appendix ${ix + 1}/${metaInterpreted.appendices.length} "${section.title}"`);
+			fetchAndProcessChapters.call(this, chapters, ix + 1, metaInterpreted.appendices.length, section.title);
 		}
 
 		this._logger.log(`All chapters processed: ${saver.updatedChapterCount} updated, ${saver.newChapterCount} new`);

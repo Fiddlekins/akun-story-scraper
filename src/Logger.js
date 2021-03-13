@@ -1,5 +1,6 @@
 import fs from 'fs-extra';
 import path from 'path';
+import { sprintf } from 'sprintf-js';
 
 export default class Logger {
 	constructor(settings = {}) {
@@ -61,5 +62,18 @@ export default class Logger {
 
 	_getDateString() {
 		return (new Date()).toISOString();
+	}
+
+	logSection(index, total, name, samePosts, updatedPosts, newPosts) {
+		const line = sprintf(
+			'Section %3d / %3d | %s | %s | %s | %s',
+			index,
+			total,
+			sprintf('%4d same', samePosts),
+			updatedPosts ? sprintf('%4d up', updatedPosts) : '       ',
+			newPosts ? sprintf('%4d new', newPosts) : '        ',
+			name
+		);
+		this._log(line);
 	}
 }
