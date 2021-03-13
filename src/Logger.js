@@ -76,4 +76,20 @@ export default class Logger {
 		);
 		this._log(line);
 	}
+
+	/**
+	 * @param {ItemStats} stats
+	 */
+	logChatStats(index, total, stats) {
+		const prefix = (!index && !total) ? 'Total chat stats  ' : sprintf('Page %5d / %5d', index, total);
+		const line = sprintf(
+			prefix + ' | %s | %s | %s | %s | %s |',
+			stats.same ? sprintf('%3d same', stats.same) : '        ',
+			stats.updatedBody ? sprintf('%3d upd', stats.updatedBody) : '       ',
+			stats.updatedTs ? sprintf('%3d uTS', stats.updatedTs) : '       ',
+			stats.added ? sprintf('%3d new', stats.added) : '       ',
+			stats.resurrected ? sprintf('%3d rez', stats.resurrected) : '       '
+		);
+		this._log(line);
+	}
 }

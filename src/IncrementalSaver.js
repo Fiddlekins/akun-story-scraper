@@ -1,6 +1,7 @@
 import fs from 'fs-extra';
 import path from 'path';
 import downloadImage from "./downloadImage.js";
+import ItemStats from "./ItemStats.js";
 import {getChatFileName, getImagesFileName} from "./DefaultSaver.js";
 import SaverBase, {getChaptersFileName} from "./SaverBase.js";
 
@@ -10,6 +11,7 @@ export default class IncrementalSaver extends SaverBase {
 		super({workDir});
 		this._chatPostById = new Map();
 		this._chatFailures = [];
+		this._missingChatIds = new Set();
 		this._images = new Map();
 	}
 
@@ -53,22 +55,36 @@ export default class IncrementalSaver extends SaverBase {
 		return this._archiveDir;
 	}
 
-	addChatPosts(posts) {
-		let news = 0;
-		for (const post of posts) {
-			const oldPost = this._chatPostById.get(post._id);
-			let update = false;
-			if (!!oldPost) {
-				update = post.b !== oldPost.b;
-			} else {
-				update = true;
-			}
-			if (update) {
-				this._chatPostById.set(post._id, post);
-				news += 1;
+	initializeMissingChatTracker() {
+		for (const [id, post] of this._chatPostById.entries()) {
+			if (!post.missing) {
+				this._missingChatIds.add(id);
 			}
 		}
-		return news;
+	}
+
+	addChatPosts(posts) {
+		const stats = new ItemStats();
+		for (const post of posts) {
+			const oldPost = this._chatPostById.get(post._id);
+			if (!!oldPost) {
+				if (post.b !== oldPost.b) {
+					stats.updatedBody += 1;
+				} else if (post.ut !== oldPost.ut) {
+					stats.updatedTs += 1;
+				} else {
+					stats.same += 1;
+				}
+				if (oldPost.missing) {
+					stats.resurrected += 1;
+				}
+			} else {
+				stats.added += 1;
+			}
+			this._chatPostById.set(post._id, post);
+			this._missingChatIds.delete(post._id);
+		}
+		return stats;
 	}
 
 	addChatFailure(reason, postsPerPage, pageIndex) {
@@ -78,6 +94,16 @@ export default class IncrementalSaver extends SaverBase {
 			pageIndex,
 			reason,
 		});
+	}
+
+	recordMissingChatPosts() {
+		for (const id of this._missingChatIds) {
+			const post = this._chatPostById.get(id);
+			if (post) {
+				post.missing = true;
+			}
+		}
+		return this._missingChatIds.size;
 	}
 
 	getChat() {

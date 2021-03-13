@@ -5,6 +5,7 @@ import Striver from './Striver.js';
 import Throttler from './Throttler.js';
 import DefaultSaver from "./DefaultSaver.js";
 import {UpdateResult} from "./SaverBase.js";
+import ItemStats from "./ItemStats.js";
 
 const {JSDOM} = jsdom;
 
@@ -269,12 +270,14 @@ export default class Scraper {
 		if (chatMode === 'fetch') {
 			this._logger.log(`Fetching chat log`);
 
+			saver.initializeMissingChatTracker();
+
 			const latestChat = await this._striver.handle(() => {
 				return this._api(`/api/chat/${storyId}/latest`);
 			});
 
 			if (latestChat.length) {
-				let totalNews = 0;
+				const totalChatStats = new ItemStats();
 				try {
 					const totalPosts = (await this._striver.handle(() => {
 						return this._api(`/api/chat/pages`, {'r': storyId});
@@ -296,9 +299,9 @@ export default class Scraper {
 							const posts = await this._striver.handle(() => {
 								return this._api(`/api/chat/page`, pagePostData);
 							}, retryAttempts);
-							const news = saver.addChatPosts(posts);
-							totalNews += news;
-							this._logger.log(`Page ${pageIndex}/${finalPageIndex}: +${news} new messages`);
+							const stats = saver.addChatPosts(posts);
+							totalChatStats.add(stats);
+							this._logger.logChatStats(pageIndex, finalPageIndex, stats);
 							retryAttempts = 10;
 							if (posts.length) {
 								pagePostData['lastCT'] = posts[posts.length - 1]['ct'];
@@ -316,7 +319,12 @@ export default class Scraper {
 					this._logger.error(`Failed to start fetching chat: ${err}`);
 					saver.addChatFailure(err, 0, 0);
 				}
-				this._logger.log(`Total new messages: ${totalNews}`);
+				this._logger.logChatStats(0, 0, totalChatStats);
+			}
+
+			const missingCount = saver.recordMissingChatPosts();
+			if (missingCount) {
+				this._logger.log(`Newly missing chat posts: ${missingCount}`);
 			}
 
 			// Export chat after gathering it all so that interrupting the scraper doesn't result in quests having partially updated chunks of chat

@@ -1,6 +1,7 @@
 import fs from 'fs-extra';
 import path from 'path';
 import downloadImage from "./downloadImage.js";
+import ItemStats from "./ItemStats.js";
 import SaverBase from "./SaverBase.js";
 
 export function getChatFileName(storyId, index) {
@@ -23,16 +24,20 @@ export default class DefaultSaver extends SaverBase {
 		this._images = new Map();
 	}
 
+	initializeMissingChatTracker() {
+		// do nothing
+	}
+
 	addChatPosts(posts) {
-		let news = 0;
+		const stats = new ItemStats();
 		for (const post of posts) {
 			if (!this._knownChatIds.has(post._id)) {
 				this._knownChatIds.add(post._id);
-				this._chat.push(post);
-				news += 1;
+				stats.added += 1;
 			}
+			this._chat.push(post);
 		}
-		return news;
+		return stats;
 	}
 
 	addChatFailure(reason, postsPerPage, pageIndex) {
@@ -42,6 +47,11 @@ export default class DefaultSaver extends SaverBase {
 			pageIndex,
 			reason,
 		});
+	}
+
+	recordMissingChatPosts() {
+		// not supported in the default saver
+		return 0;
 	}
 
 	getChat() {
