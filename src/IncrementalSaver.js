@@ -100,7 +100,7 @@ export default class IncrementalSaver extends SaverBase {
 		}
 		if (this._chatFailures.length > 0) {
 			await fs.outputJson(
-				path.join(this._archiveDir, getChatFileName(this._interpretedMeta.storyId, outputIndex)),
+				path.join(this._archiveDir, getChatFileName(this._interpretedMeta.storyId, 'failures')),
 				this._chatFailures
 			);
 		}
