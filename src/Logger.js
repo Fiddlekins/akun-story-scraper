@@ -1,6 +1,7 @@
 import fs from 'fs-extra';
 import path from 'path';
-import { sprintf } from 'sprintf-js';
+import sprintfjs from 'sprintf-js';
+const { sprintf } = sprintfjs;
 
 export default class Logger {
 	constructor(settings = {}) {
