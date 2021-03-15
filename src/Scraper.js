@@ -20,7 +20,7 @@ const SORT_MODES = Object.freeze({
 });
 
 // The number of posts Akun has per page of story chat
-const postsPerPage = 30;
+const postsPerPage = 300;
 
 function interpretMetadata(raw, override) {
 	const interpreted = {
@@ -150,7 +150,7 @@ export default class Scraper {
 
 		this._akun = this._settings.akun;
 		this._logger = this._settings.logger;
-		this._striver = new Striver({waitTime: 500, logger: this._logger});
+		this._striver = new Striver({waitTime: settings.waitTime, logger: this._logger});
 	}
 
 	async logFatQuest(storyId) {
@@ -272,12 +272,18 @@ export default class Scraper {
 
 			saver.initializeMissingChatTracker();
 
-			const latestChat = await this._striver.handle(() => {
-				return this._api(`/api/chat/${storyId}/latest`);
+			let pagePosts = await this._striver.handle(() => {
+				return this._api(`/api/chat/${storyId}/threading`);
 			});
 
-			if (latestChat.length) {
+			if (pagePosts.length) {
 				const totalChatStats = new ItemStats();
+				let retryAttempts = 10; // Stop trying so hard when it doesn't work
+				const pagePostData = {
+					r: storyId,
+					threading: 'threading',
+				};
+
 				try {
 					const totalPosts = (await this._striver.handle(() => {
 						return this._api(`/api/chat/pages`, {'r': storyId});
@@ -285,29 +291,26 @@ export default class Scraper {
 
 					const finalPageIndex = Math.ceil(totalPosts / postsPerPage);
 
-					const pagePostData = {
-						'r': storyId,
-						'lastCT': latestChat[latestChat.length - 1]['ct'],
-						'firstCT': latestChat[0]['ct'],
-						'cpr': finalPageIndex,
+					const assimilateChatPage = (pageIndex) => {
+						const stats = saver.addChatPosts(pagePosts);
+						totalChatStats.add(stats);
+						this._logger.logChatStats(pageIndex, finalPageIndex, stats);
+						retryAttempts = 10;
+						if (pagePosts.length) {
+							pagePostData['firstCT'] = pagePosts[0]['ct'];
+							pagePostData['lastCT'] = pagePosts[pagePosts.length - 1]['ct'];
+							pagePostData['cpr'] = pageIndex;
+						}
 					};
+					assimilateChatPage(1);
 
-					let retryAttempts = 10; // Stop trying so hard when it doesn't work
-					for (let pageIndex = 1; pageIndex <= finalPageIndex; pageIndex++) {
+					for (let pageIndex = 2; pageIndex <= finalPageIndex; pageIndex++) {
 						pagePostData['page'] = pageIndex;
 						try {
-							const posts = await this._striver.handle(() => {
+							pagePosts = await this._striver.handle(() => {
 								return this._api(`/api/chat/page`, pagePostData);
 							}, retryAttempts);
-							const stats = saver.addChatPosts(posts);
-							totalChatStats.add(stats);
-							this._logger.logChatStats(pageIndex, finalPageIndex, stats);
-							retryAttempts = 10;
-							if (posts.length) {
-								pagePostData['lastCT'] = posts[posts.length - 1]['ct'];
-								pagePostData['firstCT'] = posts[0]['ct'];
-								pagePostData['cpr'] = pageIndex;
-							}
+							assimilateChatPage(pageIndex);
 						} catch (err) {
 							this._logger.error(`Page ${pageIndex}/${finalPageIndex}: ${err}`);
 							saver.addChatFailure(err, postsPerPage, pageIndex);

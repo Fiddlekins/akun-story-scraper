@@ -26,7 +26,8 @@ async function start() {
 	const scraper = new Scraper({
 		akun,
 		logger,
-		outputDirectory
+		outputDirectory,
+		waitTime: 1000,
 	});
 
 	const storyList = new StoryList({workDir: outputDirectory});
