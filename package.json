@@ -21,7 +21,7 @@
     "image-type": "^3.0.0",
     "inquirer": "^6.2.1",
     "jsdom": "^13.2.0",
-    "postcss": "^7.0.13",
+    "postcss": "^8.2.10",
     "precss": "^4.0.0",
     "pretty-ms": "^4.0.0",
     "request": "^2.88.0",
