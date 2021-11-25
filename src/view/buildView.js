@@ -8,19 +8,22 @@ import getCSS from './getCSS.js';
 
 const {JSDOM} = jsdom;
 
-export default async function buildView(dataPath, outputPath = dataPath) {
+export default async function buildView(dataPath, outputPath = dataPath, localResources = false) {
 	const timeStart = Date.now();
 	const name = dataPath.split(/[\\\/]/g).pop();
 	const files = await fs.readdir(dataPath);
 	let metadataPath;
 	let chaptersPath;
+	let storyImageMapPath;
 	const chatPaths = [];
 	for (const file of files) {
 		const filePath = path.join(dataPath, file);
-		if (/metadata\.json$/.test(file)) {
+		if (file.endsWith("metadata.json")) {
 			metadataPath = filePath;
-		} else if (/chapters\.json$/.test(file)) {
+		} else if (file.endsWith("chapters.json")) {
 			chaptersPath = filePath;
+		} else if (file.endsWith("imagemap-story.json")) {
+			storyImageMapPath = filePath;
 		} else {
 			const match = file.match(/chat\.([0-9]+)\.json$/);
 			if (match) {
@@ -34,7 +37,11 @@ export default async function buildView(dataPath, outputPath = dataPath) {
 		}
 	}
 
-	const [metadata, chapters] = await Promise.all([fs.readJSON(metadataPath), fs.readJSON(chaptersPath)]);
+	const [metadata, chapters, storyImageMap] = await Promise.all([
+		fs.readJSON(metadataPath),
+		fs.readJSON(chaptersPath),
+		fs.readJSON(storyImageMapPath),
+	]);
 
 	const dom = new JSDOM(`<!DOCTYPE html>`);
 	const css = await getCSS();
@@ -43,10 +50,18 @@ export default async function buildView(dataPath, outputPath = dataPath) {
 	const style = JSDOM.fragment(`<style>${css}</style>`);
 	dom.window.document.querySelector('head').appendChild(style);
 
-	buildStory(dom, metadata, chapters);
+	buildStory(
+		dom,
+		metadata,
+		chapters,
+		localResources ?
+			((url) => storyImageMap[url] && `images/${storyImageMap[url]}` || url) :
+			((url) => url)
+	);
 
 	await fs.ensureDir(outputPath);
-	await fs.writeFile(path.join(outputPath, `${name}.html`), dom.serialize(), 'utf8');
+	const outputFileName = localResources ? `${name}.local.html` : `${name}.html`;
+	await fs.writeFile(path.join(outputPath, outputFileName), dom.serialize(), 'utf8');
 	const timeElapsed = Date.now() - timeStart;
 	console.log(`Built view in ${prettyMs(timeElapsed)} for ${name}`);
 }

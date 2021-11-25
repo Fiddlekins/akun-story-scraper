@@ -2,7 +2,7 @@ import fs from 'fs-extra';
 import path from 'path';
 import downloadImage from "./downloadImage.js";
 import ItemStats from "./ItemStats.js";
-import {getChatFileName, getImagesFileName} from "./DefaultSaver.js";
+import {getChatFileName, getImagesFileName, getStoryOnlyImagesFileName} from "./DefaultSaver.js";
 import SaverBase, {getChaptersFileName} from "./SaverBase.js";
 
 export default class IncrementalSaver extends SaverBase {
@@ -13,6 +13,7 @@ export default class IncrementalSaver extends SaverBase {
 		this._chatFailures = [];
 		this._missingChatIds = new Set();
 		this._images = new Map();
+		this._storyOnlyImages = new Set();
 	}
 
 	async setMetadata(raw, interpreted) {
@@ -133,9 +134,12 @@ export default class IncrementalSaver extends SaverBase {
 		return chat;
 	}
 
-	addImage(url) {
+	addImage(url, includeInStoryOnly) {
 		if (!this._images.has(url)) {
 			this._images.set(url, "");
+		}
+		if (includeInStoryOnly) {
+			this._storyOnlyImages.add(url);
 		}
 	}
 
@@ -157,10 +161,15 @@ export default class IncrementalSaver extends SaverBase {
 
 	async commitImageMap() {
 		const mapObject = {};
+		const storyOnlyObject = {};
 		for (const [key, value] of this._images.entries()) {
 			mapObject[key] = value;
+			if (this._storyOnlyImages.has(key)) {
+				storyOnlyObject[key] = value;
+			}
 		}
 		await fs.outputJson(path.join(this._archiveDir, getImagesFileName(this._interpretedMeta.storyId)), mapObject);
+		await fs.outputJson(path.join(this._archiveDir, getStoryOnlyImagesFileName(this._interpretedMeta.storyId)), storyOnlyObject);
 	}
 
 }

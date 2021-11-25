@@ -12,6 +12,10 @@ export function getImagesFileName(storyId) {
 	return `${storyId}.imagemap.json`;
 }
 
+export function getStoryOnlyImagesFileName(storyId) {
+	return `${storyId}.imagemap-story.json`;
+}
+
 
 
 export default class DefaultSaver extends SaverBase {

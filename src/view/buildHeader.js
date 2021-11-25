@@ -4,7 +4,7 @@ import removeElement from './removeElement.js';
 
 const {JSDOM} = jsdom;
 
-export default function buildHeader(metadata) {
+export default function buildHeader(metadata, resolveResource) {
 	const $header = JSDOM.fragment(`
 <div id="header">
 	<img class="coverImage" alt="Cover Image">
@@ -15,7 +15,7 @@ export default function buildHeader(metadata) {
 	<div class="introduction"></div>
 </div>`);
 	if (metadata['i']) {
-		$header.querySelector('.coverImage').src = metadata['i'][0];
+		$header.querySelector('.coverImage').src = resolveResource(metadata['i'][0]);
 	} else {
 		removeElement($header.querySelector('.coverImage'));
 	}

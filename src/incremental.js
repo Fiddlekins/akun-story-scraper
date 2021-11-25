@@ -50,6 +50,7 @@ async function start() {
 
 			if (html) {
 				await buildView(saver.getArchiveDir(), saver.getArchiveDir());
+				await buildView(saver.getArchiveDir(), saver.getArchiveDir(), true);
 			}
 		} catch (err) {
 			logger.error(`Unable to archive story ${id}: ${err}`);

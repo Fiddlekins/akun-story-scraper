@@ -214,7 +214,7 @@ export default class Scraper {
 		this._logger.log(`Archiving ${metaInterpreted.storyTitle} by ${metaInterpreted.author}`);
 		await saver.setMetadata(metaData, metaInterpreted);
 
-		Scraper.addImageUrlsFromMetadata(metaData, (url) => saver.addImage(url));
+		Scraper.addImageUrlsFromMetadata(metaData, (url) => saver.addImage(url, true));
 
 		function fetchAndProcessChapters(chapters, sectionIndex, totalSections, sectionName) {
 			const [newChapters, updatedChapters, sameChapters] = chapters.reduce(
@@ -264,7 +264,7 @@ export default class Scraper {
 		this._logger.log(`Committing chapters`);
 		const story = await saver.commitChapters();
 
-		Scraper.addImageUrlsFromStory(story, (url) => saver.addImage(url), this._logger);
+		Scraper.addImageUrlsFromStory(story, (url) => saver.addImage(url, true), this._logger);
 
 		let chat = [];
 		if (chatMode === 'fetch') {
