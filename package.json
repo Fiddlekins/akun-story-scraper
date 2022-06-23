@@ -20,7 +20,7 @@
     "fs-extra": "^4.0.2",
     "image-type": "^3.0.0",
     "inquirer": "^6.2.1",
-    "jsdom": "^13.2.0",
+    "jsdom": "^16.5.0",
     "postcss": "^7.0.13",
     "precss": "^4.0.0",
     "pretty-ms": "^4.0.0",
