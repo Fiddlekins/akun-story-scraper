@@ -112,6 +112,7 @@ export default class IncrementalSaver extends SaverBase {
 		for (const [id, post] of this._chatPostById.entries()) {
 			chat.push(post);
 		}
+		chat.sort((a, b) => a.ct - b.ct);
 		return chat;
 	}
 
