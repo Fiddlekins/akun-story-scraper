@@ -12,6 +12,7 @@ import Logger from './Logger.js';
 import Scraper from './Scraper.js';
 import buildView from './view/buildView.js';
 import {readOrAskForCredentials} from "./credentials.js";
+import {DefaultAkunApiWrapper} from "./apiwrapper/apiwrapper.js";
 
 const logger = new Logger();
 const projectRoot = path.join(fileURLToPath(import.meta.url), '..', '..');
@@ -49,6 +50,7 @@ async function start() {
 	const akun = new Akun({
 		hostname: 'fiction.live'
 	});
+	const apiWrapper = new DefaultAkunApiWrapper(logger, akun);
 
 	await readOrAskForCredentials(akun, logger);
 
@@ -59,11 +61,14 @@ async function start() {
 		default: path.join(projectRoot, `data-${Date.now()}`)
 	});
 
-	const scraper = new Scraper({
-		akun,
+	const scraper = new Scraper(
 		logger,
-		outputDirectory
-	});
+		apiWrapper,
+		{
+			akun,
+			outputDirectory
+		}
+	);
 
 	switch (mode) {
 		case 'scrape':

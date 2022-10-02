@@ -6,9 +6,23 @@ import IncrementalSaver from "./IncrementalSaver.js";
 import StoryList from "./yamlStoryList.js";
 import clap from 'clap';
 import buildView from "./view/buildView.js";
+import {DefaultAkunApiWrapper, ReplayingAkunApiWrapper, SavingAkunApiWrapper} from "./apiwrapper/apiwrapper.js";
 
 const theCommand = clap.command("incremental")
-	.option('-v, --verbose', 'Verbose (debug) output');
+	.option('-v, --verbose', 'Verbose (debug) output')
+	.option('--record', 'Record successful API call results')
+	.option('--replay', 'Replay recorded API call results');
+
+function createApiWrapper(cli, logger, akun) {
+	let api = new DefaultAkunApiWrapper(logger, akun);
+	if (cli.options.record) {
+		api = new SavingAkunApiWrapper(logger, api, 'api-recordings');
+	}
+	if (cli.options.replay) {
+		api = new ReplayingAkunApiWrapper(logger, api, 'api-recordings');
+	}
+	return api;
+}
 
 async function start() {
 	const cli = theCommand.run();
@@ -18,17 +32,21 @@ async function start() {
 	const akun = new Akun({
 		hostname: 'fiction.live'
 	});
+	const apiWrapper = createApiWrapper(cli, logger, akun);
 
 	await readOrAskForCredentials(akun, logger);
 
 	const outputDirectory = '.';
 
-	const scraper = new Scraper({
-		akun,
+	const scraper = new Scraper(
 		logger,
-		outputDirectory,
-		waitTime: 1000,
-	});
+		apiWrapper,
+		{
+			akun,
+			outputDirectory,
+			waitTime: 1000,
+		}
+	);
 
 	const storyList = new StoryList({workDir: outputDirectory});
 	let targets = await storyList.read();

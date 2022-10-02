@@ -145,12 +145,13 @@ export default class Scraper {
 		}
 	}
 
-	constructor(settings) {
+	constructor(logger, apiWrapper, settings) {
 		this._settings = settings;
 
+		this._apiWrapper = apiWrapper;
 		this._akun = this._settings.akun;
-		this._logger = this._settings.logger;
-		this._striver = new Striver({waitTime: settings.waitTime, logger: this._logger});
+		this._logger = logger;
+		this._striver = new Striver({waitTime: settings.waitTime, logger});
 	}
 
 	async logFatQuest(storyId) {
@@ -197,9 +198,7 @@ export default class Scraper {
 
 		let metaData;
 		try {
-			metaData = await this._striver.handle(() => {
-				return this._api(`/api/node/${storyId}`);
-			});
+			metaData = await this._apiWrapper.getStoryMetadata(storyId);
 		} catch (err) {
 			this._logger.log(`Metadata inaccessible for storyId ${storyId}, using fallback user 'anon' and title 'undefined'`);
 			// Make it up instead in case the story nodes are still available
@@ -244,18 +243,14 @@ export default class Scraper {
 		}
 
 		for (const [ix, section] of metaInterpreted.sections.entries()) {
-			const chapters = await this._striver.handle(() => {
-				return this._api(`/api/anonkun/chapters/${storyId}/${section.startTs}/${section.endTs}`);
-			}, 30);
+			const chapters = await this._apiWrapper.getStoryChapters(storyId, section.startTs, section.endTs);
 			fetchAndProcessChapters.call(this, chapters, ix + 1, metaInterpreted.sections.length, section.title);
 		}
 
 		// we probably caught all appendices when getting regular chapters, but let's double-check
 		this._logger.log('Double-checking appendices');
 		for (const [ix, section] of metaInterpreted.appendices.entries()) {
-			const chapters = await this._striver.handle(() => {
-				return this._api(`/api/anonkun/chapters/${storyId}/${section.ct}/${section.ct + 1}`);
-			}, 30);
+			const chapters = await this._apiWrapper.getStoryChapters(storyId, section.ct, section.ct + 1);
 			fetchAndProcessChapters.call(this, chapters, ix + 1, metaInterpreted.appendices.length, section.title);
 		}
 
@@ -272,24 +267,20 @@ export default class Scraper {
 
 			saver.initializeMissingChatTracker();
 
-			let pagePosts = await this._striver.handle(() => {
-				return this._api(`/api/chat/${storyId}/threading`);
-			});
+			let pagePosts = await this._apiWrapper.getThreading(storyId);
 
 			if (pagePosts.length) {
 				const totalChatStats = new ItemStats();
 				let retryAttempts = 10; // Stop trying so hard when it doesn't work
-				const pagePostData = {
-					r: storyId,
-					threading: 'threading',
-				};
 
 				try {
-					const totalPosts = (await this._striver.handle(() => {
-						return this._api(`/api/chat/pages`, {'r': storyId});
-					}))['count'];
+					const totalPosts = (await this._apiWrapper.getChatPages(storyId))['count'];
 
 					const finalPageIndex = Math.ceil(totalPosts / postsPerPage);
+
+					let firstCT = undefined;
+					let lastCT = undefined;
+					let cpr = undefined;
 
 					const assimilateChatPage = (pageIndex) => {
 						const stats = saver.addChatPosts(pagePosts);
@@ -297,19 +288,17 @@ export default class Scraper {
 						this._logger.logChatStats(pageIndex, finalPageIndex, stats);
 						retryAttempts = 10;
 						if (pagePosts.length) {
-							pagePostData['firstCT'] = pagePosts[0]['ct'];
-							pagePostData['lastCT'] = pagePosts[pagePosts.length - 1]['ct'];
-							pagePostData['cpr'] = pageIndex;
+							firstCT = pagePosts[0]['ct'];
+							lastCT = pagePosts[pagePosts.length - 1]['ct'];
+							cpr = pageIndex;
 						}
 					};
 					assimilateChatPage(1);
 
 					for (let pageIndex = 2; pageIndex <= finalPageIndex; pageIndex++) {
-						pagePostData['page'] = pageIndex;
 						try {
-							pagePosts = await this._striver.handle(() => {
-								return this._api(`/api/chat/page`, pagePostData);
-							}, retryAttempts);
+							pagePosts = await this._apiWrapper
+								.getChatPage(storyId, cpr, firstCT, lastCT, pageIndex, retryAttempts);
 							assimilateChatPage(pageIndex);
 						} catch (err) {
 							this._logger.error(`Page ${pageIndex}/${finalPageIndex}: ${err}`);
