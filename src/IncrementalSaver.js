@@ -76,7 +76,7 @@ export default class IncrementalSaver extends SaverBase {
 				} else {
 					stats.same += 1;
 				}
-				if (oldPost.missing) {
+				if (oldPost.missing && !post.missing) {
 					stats.resurrected += 1;
 				}
 			} else {
