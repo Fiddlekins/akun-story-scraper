@@ -81,6 +81,9 @@ export default class DefaultSaver extends SaverBase {
 	}
 
 	addImage(url) {
+		if (!url) {
+			return;
+		}
 		this._images.set(url, "");
 	}
 
@@ -89,6 +92,9 @@ export default class DefaultSaver extends SaverBase {
 	}
 
 	async downloadImage(url) {
+		if (!url) {
+			return;
+		}
 		const imagePath = await downloadImage(url, this._imagesPath);
 		this._images.set(url, imagePath);
 	}

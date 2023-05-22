@@ -144,6 +144,9 @@ export default class IncrementalSaver extends SaverBase {
 	}
 
 	addImage(url, includeInStoryOnly) {
+		if (!url) {
+			return;
+		}
 		if (!this._images.has(url)) {
 			this._images.set(url, "");
 		}
@@ -164,6 +167,9 @@ export default class IncrementalSaver extends SaverBase {
 	}
 
 	async downloadImage(url) {
+		if (!url) {
+			return;
+		}
 		const imagePath = await downloadImage(url, this._imagesPath);
 		this._images.set(url, imagePath);
 	}
