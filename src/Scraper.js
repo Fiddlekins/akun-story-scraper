@@ -2,6 +2,7 @@ import fs from 'fs-extra';
 import jsdom from 'jsdom';
 import path from 'path';
 import downloadImage from './downloadImage.js';
+import {imageURLParser} from "./imageURLParser.js";
 import Striver from './Striver.js';
 import Throttler from './Throttler.js';
 
@@ -299,13 +300,14 @@ export default class Scraper {
 			const throttler = new Throttler();
 			const promises = [];
 			Array.from(imageUrls).forEach(imageUrl => {
+				const parsedImageUrl = imageURLParser(imageUrl);
 				const promiseGenerator = () => {
-					return downloadImage(imageUrl, imagesPath).then(imagePath => {
+					return downloadImage(parsedImageUrl, imagesPath).then(imagePath => {
 						imageMap[imageUrl] = imagePath;
 					});
 				};
 				const promise = throttler.queue(promiseGenerator).catch(err => {
-					this._logger.error(`Unable to download image ${imageUrl} due to:\n${err}`);
+					this._logger.error(`Unable to download image ${imageUrl} (parsed: ${parsedImageUrl}) due to:\n${err}`);
 				});
 				promises.push(promise);
 			});

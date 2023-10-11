@@ -1,6 +1,6 @@
 {
   "name": "akun-story-scraper",
-  "version": "1.7.0",
+  "version": "1.8.0",
   "description": "A tool to archive all quests on Akun",
   "type": "module",
   "main": "src/index.js",
