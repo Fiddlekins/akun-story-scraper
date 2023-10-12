@@ -16,7 +16,7 @@ const SORT_MODES = Object.freeze({
 	CHAPTER: 'chapter',
 	REPLIES: 'replies',
 	LIKE: 'like',
-	TOP: 'top'
+	HOT: 'hot'
 });
 
 // The number of posts Akun has per page of story chat

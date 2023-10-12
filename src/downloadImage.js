@@ -4,6 +4,7 @@ import path from 'path';
 import request from 'request';
 import sanitize from 'sanitize-filename';
 import {Transform} from 'stream';
+import {imageURLParser} from './imageURLParser.js';
 
 class ImageTypeIntercept extends Transform {
 	constructor(options) {
@@ -22,6 +23,7 @@ class ImageTypeIntercept extends Transform {
 }
 
 export default async function downloadImage(imageUrl, dest) {
+	imageUrl = imageURLParser(imageUrl);
 	const url = new URL(imageUrl);
 	const segments = url.href.replace(`${url.protocol}//`, '').split('/').map(segment => sanitize(segment, {replacement: '!'}));
 	let imagePath = path.join(...segments);

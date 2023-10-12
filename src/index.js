@@ -117,9 +117,9 @@ async function scrape(scraper) {
 					short: 'likes'
 				},
 				{
-					name: 'Sort by the most commented stories',
-					value: Scraper.SORT_MODES.TOP,
-					short: 'top'
+					name: 'Sort by the most upvoted in 24 hours',
+					value: Scraper.SORT_MODES.HOT,
+					short: 'hot'
 				}
 			]
 		},

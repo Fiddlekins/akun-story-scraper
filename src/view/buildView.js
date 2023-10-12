@@ -5,6 +5,7 @@ import path from 'path';
 import prettyMs from 'pretty-ms';
 import buildStory from './buildStory.js';
 import getCSS from './getCSS.js';
+import {imageURLParser} from "../imageURLParser.js";
 
 const {JSDOM} = jsdom;
 
@@ -54,9 +55,7 @@ export default async function buildView(dataPath, outputPath = dataPath, localRe
 		dom,
 		metadata,
 		chapters,
-		localResources ?
-			((url) => storyImageMap[url] && `images/${storyImageMap[url]}` || url) :
-			((url) => url)
+		(url) => localResources && storyImageMap[url] && `images/${storyImageMap[url]}` || imageURLParser(url)
 	);
 
 	await fs.ensureDir(outputPath);
