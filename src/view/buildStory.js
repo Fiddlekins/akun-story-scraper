@@ -4,11 +4,11 @@ import buildUpdate from './buildUpdate.js';
 
 const {JSDOM} = jsdom;
 
-export default function buildStory(dom, metadata, chapters) {
+export default function buildStory(dom, metadata, chapters, resolveResource) {
 	const doc = dom.window.document;
 
 	// Add header
-	doc.body.appendChild(buildHeader(metadata));
+	doc.body.appendChild(buildHeader(metadata, resolveResource));
 
 	// Add story
 	doc.body.appendChild(JSDOM.fragment(`
@@ -52,7 +52,7 @@ export default function buildStory(dom, metadata, chapters) {
 
 	// Add Content
 	for (let update of chapters) {
-		const $update = buildUpdate(update);
+		const $update = buildUpdate(update, resolveResource);
 		if (!$update) {
 			continue;
 		}
