@@ -47,7 +47,9 @@ export default class IncrementalSaver extends SaverBase {
 		if (await fs.pathExists(imagesFilePath)) {
 			const oldImages = await fs.readJson(imagesFilePath);
 			for (const k of Object.getOwnPropertyNames(oldImages)) {
-				this._images.set(k, oldImages[k]);
+				if (k) {
+					this._images.set(k, oldImages[k]);
+				}
 			}
 		}
 	}
