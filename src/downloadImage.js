@@ -3,8 +3,10 @@ import imageType from 'image-type';
 import path from 'path';
 import sanitize from 'sanitize-filename';
 import { Readable } from 'stream';
+import {imageURLParser} from './imageURLParser.js';
 
 export default async function downloadImage(imageUrl, dest) {
+	imageUrl = imageURLParser(imageUrl);
 	const url = new URL(imageUrl);
 	const segments = url.href.replace(`${url.protocol}//`, '').split('/').map(segment => sanitize(segment, {replacement: '!'}));
 	let imagePath = path.join(...segments);
@@ -24,7 +26,7 @@ export default async function downloadImage(imageUrl, dest) {
 	if (done) {
 		throw new Error(`Response has no data for ${imageUrl}`);
 	}
-	
+
 	const maybeImageType = imageType(chunk);
 	if (maybeImageType) {
 		const {ext} = maybeImageType;

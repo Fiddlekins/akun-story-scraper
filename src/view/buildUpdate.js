@@ -8,7 +8,7 @@ import formatTimestamp from './formatTimestamp.js';
 
 const {JSDOM} = jsdom;
 
-export default function buildUpdate(update) {
+export default function buildUpdate(update, resolveResource) {
 	const $update = JSDOM.fragment(`
 <div id="${update['_id']}" class="update ${update['nt']}">
 	<div class="contentMetadata">
@@ -27,7 +27,7 @@ export default function buildUpdate(update) {
 	const $content = $update.querySelector('.content');
 	switch (update['nt']) {
 		case 'chapter':
-			buildChapter($content, update);
+			buildChapter($content, update, resolveResource);
 			break;
 		case 'choice':
 			buildChoice($content, update);
