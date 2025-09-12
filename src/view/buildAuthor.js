@@ -14,7 +14,7 @@ export default function buildAuthor(author) {
 		if (author['a']) {
 			$img.src = formatAvatarSrc(author['a'], 256);
 		} else {
-			$img.src = `https://placehold.it/256x256`;
+			$img.src = `https://placehold.it/256x256`; // todo
 		}
 		return $author;
 	} else {
